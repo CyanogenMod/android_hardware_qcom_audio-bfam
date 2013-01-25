@@ -351,6 +351,14 @@ AudioHardwareALSA::AudioHardwareALSA() :
     }
 
     mStatus = OK;
+    char spkr_prot_enabled[80] = "false";
+    property_get("persist.speaker.prot.enable",spkr_prot_enabled,"0");
+    if (!strncmp("true", spkr_prot_enabled, 4)) {
+        ALOGD("Speaker Protection enabled");
+        mspkrProtection.initialize(this);
+        mALSADevice->setSpkrProtHandle(&mspkrProtection);
+    } else
+        ALOGD("Speaker Protection disabled");
 }
 
 AudioHardwareALSA::~AudioHardwareALSA()
