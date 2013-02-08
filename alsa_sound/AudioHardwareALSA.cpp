@@ -451,6 +451,56 @@ status_t AudioHardwareALSA::setMode(int mode)
     return status;
 }
 
+void AudioHardwareALSA::parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParameter *param)
+{
+    String8 key;
+    String8 value;
+    int ddp_val = 0;
+    key = String8("ddp_maxoutchan");
+    if (param->getInt(key, ddp_val) == NO_ERROR) {
+        if(mALSADevice) {
+            mALSADevice->updateDDPEndpTable(ddp_dev, ddp_ch_cap,
+                                        PARAM_ID_MAX_OUTPUT_CHANNELS, ddp_val);
+        }
+        param->remove(key);
+    }
+    key = String8("ddp_outmode");
+    if (param->getInt(key, ddp_val) == NO_ERROR) {
+        if(mALSADevice) {
+            mALSADevice->updateDDPEndpTable(ddp_dev, ddp_ch_cap,
+                                        PARAM_ID_OUT_CTL_OUTMODE, ddp_val);
+        }
+        param->remove(key);
+    }
+    key = String8("ddp_outlfeon");
+    if (param->getInt(key, ddp_val) == NO_ERROR) {
+        if(mALSADevice) {
+            mALSADevice->updateDDPEndpTable(ddp_dev, ddp_ch_cap,
+                                        PARAM_ID_OUT_CTL_OUTLFE_ON, ddp_val);
+        }
+        param->remove(key);
+    }
+    key = String8("ddp_compmode");
+    if (param->getInt(key, ddp_val) == NO_ERROR) {
+        if(mALSADevice) {
+            mALSADevice->updateDDPEndpTable(ddp_dev, ddp_ch_cap,
+                                        PARAM_ID_OUT_CTL_COMPMODE,  ddp_val);
+        }
+        param->remove(key);
+    }
+    key = String8("ddp_stereomode");
+    if (param->getInt(key, ddp_val) == NO_ERROR) {
+        if(mALSADevice) {
+            mALSADevice->updateDDPEndpTable(ddp_dev, ddp_ch_cap,
+                                        PARAM_ID_OUT_CTL_STEREO_MODE, ddp_val);
+        }
+        param->remove(key);
+    }
+
+    if (ddp_dev == mCurDevice)
+        setDDPEndpParams(ddp_dev);
+}
+
 status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
 {
     AudioParameter param = AudioParameter(keyValuePairs);
@@ -460,7 +510,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     int device;
     int btRate;
     int state;
-
+    int ddp_dev, ddp_ch_cap;
     ALOGV("setParameters() %s", keyValuePairs.string());
 
     key = String8(AudioParameter::keyADSPStatus);
@@ -567,9 +617,8 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     key = String8(AudioParameter::keyRouting);
     if (param.getInt(key, device) == NO_ERROR) {
         // Ignore routing if device is 0.
-        if(device) {
+        if(device)
             doRouting(device);
-        }
         param.remove(key);
     }
 
@@ -698,6 +747,16 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
             mCallState = state;
         }
     }
+    key = String8("ddp_device");
+    if (param.getInt(key, ddp_dev) == NO_ERROR) {
+        param.remove(key);
+    }
+    key = String8("ddp_chancap");
+    if (param.getInt(key, ddp_ch_cap) == NO_ERROR) {
+        param.remove(key);
+        parseDDPParams(ddp_dev, ddp_ch_cap, &param);
+    }
+
     if (param.size()) {
         status = BAD_VALUE;
     }
@@ -876,6 +935,8 @@ status_t AudioHardwareALSA::doRouting(int device)
     ALOGV("device = 0x%x,mCurDevice 0x%x", device, mCurDevice);
     if (device == 0)
         device = mCurDevice;
+    if (device != mCurDevice)
+        setDDPEndpParams(device);
     ALOGV("doRouting: device %#x newMode %d mCSCallActive %d mVolteCallActive %d"
           "mVoice2CallActive %d mIsFmActive %d", device, newMode, mCSCallActive,
           mVolteCallActive, mVoice2CallActive, mIsFmActive);
@@ -2905,6 +2966,47 @@ bool  AudioHardwareALSA::suspendPlaybackOnExtOut_l(uint32_t activeUsecase) {
     clearExtOutActiveUseCases_l(activeUsecase);
     if((!getExtOutActiveUseCases_l()) && mIsExtOutEnabled )
         return mALSADevice->suspendProxy();
+    return NO_ERROR;
+}
+
+status_t AudioHardwareALSA::setDDPEndpParams(int device)
+{
+    ALOGV("%s E", __func__);
+    int dev_ch_cap = 2, idx;
+    EDID_AUDIO_INFO info = { 0 };
+
+    if(device & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
+        char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
+        if(mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
+            if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
+                for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
+                    if (info.AudioBlocksArray[i].nChannels > dev_ch_cap &&
+                          info.AudioBlocksArray[i].nChannels <= 8) {
+                        dev_ch_cap = info.AudioBlocksArray[i].nChannels;
+                    }
+                }
+            }
+        }
+    }
+
+    for(ALSAHandleList::iterator it = mDeviceList.begin(); it != mDeviceList.end(); it++) {
+        if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
+           (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL)) ) {
+            if ((it->format == AUDIO_FORMAT_EAC3 ||
+                 it->format == AUDIO_FORMAT_AC3) &&
+                (it->handle))
+                {
+                 char *ddpEndpParams;
+                 int length;
+                 ddpEndpParams = (char *) malloc (2*DDP_ENDP_NUM_PARAMS*sizeof(int));
+                 if(ddpEndpParams == NULL)
+                     continue;
+                 mALSADevice->setDDPEndpParams(&(*it), device, dev_ch_cap,
+                                                ddpEndpParams, &length, true);
+                 free(ddpEndpParams);
+            }
+        }
+    }
     return NO_ERROR;
 }
 

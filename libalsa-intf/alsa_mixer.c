@@ -567,7 +567,7 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, char ** argv)
         break;
     case SNDRV_CTL_ELEM_TYPE_INTEGER: {
         for (n = 0; n < ctl->info->count; n++) {
-             fprintf( stderr, "Value: %d idx:%d\n", atoi(argv[n]), n);
+             ALOGV("Value: %d idx:%d\n", atoi(argv[n]), n);
              ev.value.integer.value[n] = atoi(argv[n]);
         }
         break;
@@ -575,14 +575,14 @@ int mixer_ctl_mulvalues(struct mixer_ctl *ctl, int count, char ** argv)
     case SNDRV_CTL_ELEM_TYPE_INTEGER64: {
         for (n = 0; n < ctl->info->count; n++) {
              long long value_ll = scale_int64(ctl->info, atoi(argv[n]));
-             fprintf( stderr, "ll_value = %lld\n", value_ll);
+             ALOGV("ll_value = %lld\n", value_ll);
              ev.value.integer64.value[n] = value_ll;
         }
         break;
     }
     case SNDRV_CTL_ELEM_TYPE_ENUMERATED: {
         for (n = 0; n < ctl->info->count; n++) {
-            fprintf( stderr, "Value: %d idx:%d\n", atoi(argv[n]), n);
+            ALOGV("Value: %d idx:%d\n", atoi(argv[n]), n);
             ev.value.enumerated.item[n] = (unsigned int)atoi(argv[n]);
         }
         break;
