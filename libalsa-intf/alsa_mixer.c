@@ -460,15 +460,19 @@ int mixer_ctl_get_elem_info(struct mixer_ctl *ctl)
     return 0;
 }
 
-void mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *count)
+int mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *count)
 {
     struct snd_ctl_elem_value ev;
     unsigned int n;
+    int err = 0;
 
     memset(&ev, 0, sizeof(ev));
     ev.id.numid = ctl->info->id.numid;
-    if (ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev))
-        return;
+    err = ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_READ, &ev);
+    if (err) {
+        ALOGE("failed to read values");
+        return err;
+    }
     ALOGV("%s:", ctl->info->id.name);
 
     switch (ctl->info->type) {
@@ -516,6 +520,7 @@ void mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *
         ALOGV(" ???");
     }
     ALOGV("\n");
+    return 0;
 }
 
 static long scale_int(struct snd_ctl_elem_info *ei, unsigned _percent)

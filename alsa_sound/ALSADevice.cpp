@@ -1488,6 +1488,12 @@ status_t ALSADevice::route(alsa_handle_t *handle, uint32_t devices, int mode)
 
     ALOGD("route: devices 0x%x in mode %d", devices, mode);
     mCallMode = mode;
+#ifdef DOLBY_DAP
+    if (devices) {
+        setEndpDevice(devices);
+        setDMID();
+    }
+#endif
     switchDevice(handle, devices, mode);
     return status;
 }
@@ -2403,6 +2409,36 @@ status_t ALSADevice::setDMID()
     free(setValues);
     return (err < 0) ? BAD_VALUE : NO_ERROR;
 }
+
+#ifdef DOLBY_DAP
+status_t ALSADevice::setEndpDevice(int value)
+{
+    ALOGD("setEndpDevice: device %d", value);
+    status_t err = NO_ERROR;
+    char** setValues;
+    setValues = (char**)malloc(sizeof(char*));
+    if (setValues == NULL) {
+          ALOGE("unable to alloc memory for sending endp parameters");
+          return BAD_VALUE;
+    }
+    setValues[0] = (char*)malloc(12*sizeof(char));
+                   // 12 - to hold max 32 bit length of char in property
+    if (setValues[0] == NULL) {
+          ALOGE("unable to alloc memory for sending endp parameters");
+          free(setValues);
+          return BAD_VALUE;
+    }
+
+    sprintf(setValues[0], "%d", value);
+
+    err = setMixerControlExt("DS1 DAP Endpoint", 1, setValues);
+    if (err != NO_ERROR)
+        ALOGE("set DS1 Endpoint failed");
+    free(setValues[0]);
+    free(setValues);
+    return (err < 0) ? BAD_VALUE : NO_ERROR;
+}
+#endif
 
 status_t ALSADevice::getMixerControl(const char *name, unsigned int &value, int index)
 {
