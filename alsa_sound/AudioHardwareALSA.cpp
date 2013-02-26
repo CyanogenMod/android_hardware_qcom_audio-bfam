@@ -193,6 +193,9 @@ AudioHardwareALSA::AudioHardwareALSA() :
             } else if (strstr(soundCardInfo, "msm8974-taiko-liquid-snd-card")) {
                 codec_rev = 43;
                 break;
+            } else if (strstr(soundCardInfo, "msm8226-tapan-snd-card")) {
+                codec_rev = 44;
+                break;
             } else if(strstr(soundCardInfo, "no soundcards")) {
                 ALOGE("NO SOUND CARD DETECTED");
                 if(sleep_retry < SOUND_CARD_SLEEP_RETRY) {
@@ -249,6 +252,9 @@ AudioHardwareALSA::AudioHardwareALSA() :
     } else if (codec_rev == 43) {
         ALOGV("Detected taiko liquid sound card");
         snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Taiko_liquid");
+    } else if (codec_rev == 44) {
+        ALOGV("Detected tapan sound card");
+        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Tapan");
     } else {
         property_get("ro.board.platform", platform, "");
         property_get("ro.baseband", baseband, "");
@@ -1245,7 +1251,7 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
         alsa_handle.handle = 0;
         alsa_handle.format = SNDRV_PCM_FORMAT_S16_LE;
 
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
         char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT + 1];
                               // additional 1 byte for length of the EDID
         if (mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
@@ -1877,7 +1883,7 @@ size_t AudioHardwareALSA::getInputBufferSize(uint32_t sampleRate, int format, in
     size_t bufferSize = 0;
     if (format == AUDIO_FORMAT_PCM_16_BIT) {
         if(sampleRate == 8000 || sampleRate == 16000 || sampleRate == 32000) {
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
             bufferSize = DEFAULT_IN_BUFFER_SIZE;
 #else
             bufferSize = (sampleRate * channelCount * 20 * sizeof(int16_t)) / 1000;

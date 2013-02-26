@@ -280,7 +280,7 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
         EDID_AUDIO_INFO info = { 0 };
         bool first = true;
         value = String8();
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
         char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
         if(!mParent->mALSADevice->getEDIDData(hdmiEDIDData)) {
             if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {

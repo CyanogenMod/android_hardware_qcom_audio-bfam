@@ -175,7 +175,7 @@ status_t ALSADevice::setHDMIChannelCount()
     const char *channel_cnt_str = NULL;
     EDID_AUDIO_INFO info = { 0 };
 
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
     char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
     if(!getEDIDData(hdmiEDIDData)) {
         if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
@@ -838,7 +838,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
         devName = NULL;
     }
 
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
     if(handle->channels > 2)
         setChannelMap(handle, MAX_HDMI_CHANNEL_CNT);
 #endif
