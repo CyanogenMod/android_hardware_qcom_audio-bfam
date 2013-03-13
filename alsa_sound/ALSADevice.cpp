@@ -133,7 +133,16 @@ static bool isPlatformFusion3() {
 
 static bool shouldUseHandsetAnc(int flags, int inChannels)
 {
-    if (!isPlatformFusion3()) {
+    char prop_aanc[128] = "false";
+    int aanc_enabled = 0;
+
+    property_get("persist.aanc.enable", prop_aanc, "0");
+    if (!strncmp("true", prop_aanc, 4)) {
+        ALOGD("AANC enabled in the property\n");
+        aanc_enabled = 1;
+    }
+
+    if (!isPlatformFusion3() && !aanc_enabled) {
         return false;
     }
     return (flags & ANC_FLAG) && (inChannels == 1);
