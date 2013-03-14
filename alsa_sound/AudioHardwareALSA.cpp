@@ -95,8 +95,9 @@ AudioHardwareALSA::AudioHardwareALSA() :
 {
     FILE *fp;
     char soundCardInfo[200];
-    char platform[128], baseband[128], audio_init[128], platformVer[128];
-    int codec_rev = 2, verNum = 0;
+    char platform[128], baseband[128], platformVer[128];
+    int verNum = 0;
+    struct snd_ctl_card_info *cardInfo;
 
     mDeviceList.clear();
     mCSCallActive = 0;
@@ -104,8 +105,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
     mSGLTECallActive = 0;
     mIsFmActive = 0;
     mDevSettingsFlag = 0;
-    bool audio_init_done = false;
-    int sleep_retry = 0;
+
 #ifdef QCOM_USBAUDIO_ENABLED
     mAudioUsbALSA = new AudioUsbALSA();
     musbPlaybackState = 0;
@@ -142,6 +142,11 @@ AudioHardwareALSA::AudioHardwareALSA() :
         mStatus = NO_INIT;
         return;
     }
+    if (mALSADevice->initCheck() != OK) {
+        mStatus = NO_INIT;
+        return;
+    }
+
 #ifdef QCOM_ACDB_ENABLED
     mAcdbHandle = ::dlopen("/system/lib/libacdbloader.so", RTLD_NOW);
     if (mAcdbHandle == NULL) {
@@ -159,103 +164,30 @@ AudioHardwareALSA::AudioHardwareALSA() :
     mALSADevice->setACDBHandle(mAcdbHandle);
 #endif
 
-    if((fp = fopen("/proc/asound/cards","r")) == NULL) {
-        ALOGE("Cannot open /proc/asound/cards file to get sound card info");
-        mStatus = NO_INIT;
-        return;
-    } else {
-        while((fgets(soundCardInfo, sizeof(soundCardInfo), fp) != NULL)) {
-            ALOGV("SoundCardInfo %s", soundCardInfo);
-            if (strstr(soundCardInfo, "msm8960-tabla1x-snd-card")) {
-                codec_rev = 1;
-                break;
-            } else if (strstr(soundCardInfo, "msm-snd-card")) {
-                codec_rev = 2;
-                break;
-            } else if (strstr(soundCardInfo, "apq8064-tabla-snd-card")) {
-                codec_rev = 2;
-                break;
-            } else if (strstr(soundCardInfo, "msm8960-snd-card")) {
-                codec_rev = 2;
-                break;
-            } else if (strstr(soundCardInfo, "msm8930-sitar-snd-card")) {
-                codec_rev = 3;
-                break;
-            } else if (strstr(soundCardInfo, "msm8974-taiko-mtp-snd-card")) {
-                codec_rev = 40;
-                break;
-            } else if (strstr(soundCardInfo, "msm8974-taiko-cdp-snd-card")) {
-                codec_rev = 41;
-                break;
-            } else if (strstr(soundCardInfo, "msm8974-taiko-fluid-snd-card")) {
-                codec_rev = 42;
-                break;
-            } else if (strstr(soundCardInfo, "msm8974-taiko-liquid-snd-card")) {
-                codec_rev = 43;
-                break;
-            } else if (strstr(soundCardInfo, "msm8226-tapan-snd-card")) {
-                codec_rev = 44;
-                break;
-            } else if(strstr(soundCardInfo, "no soundcards")) {
-                ALOGE("NO SOUND CARD DETECTED");
-                if(sleep_retry < SOUND_CARD_SLEEP_RETRY) {
-                    ALOGD("Sleeping for 100 ms");
-                    usleep(SOUND_CARD_SLEEP_WAIT * 1000);
-                    sleep_retry++;
-                    fseek(fp, 0, SEEK_SET);
-                    continue;
-                }
-                else {
-                    ALOGE("Failed %d attempts for sound card detection", sleep_retry);
-                    fclose(fp);
-                    mStatus = NO_INIT;
-                    return;
-                }
-            } else {
-                ALOGE("ERROR - Sound card detection");
-                fclose(fp);
-                mStatus = NO_INIT;
-                return;
-            }
-        }
-        fclose(fp);
+    cardInfo = mALSADevice->getSoundCardInfo();
+
+    if (mAudioUsbALSA) {
+        mAudioUsbALSA->setProxySoundCard(cardInfo->card);
     }
 
-    sleep_retry = 0;
-    while (audio_init_done == false && sleep_retry < MAX_SLEEP_RETRY) {
-        property_get("qcom.audio.init", audio_init, NULL);
-        ALOGD("qcom.audio.init is set to %s\n",audio_init);
-        if(!strncmp(audio_init, "complete", sizeof("complete"))) {
-            audio_init_done = true;
-        } else {
-            ALOGD("Sleeping for 50 ms");
-            usleep(AUDIO_INIT_SLEEP_WAIT*1000);
-            sleep_retry++;
-        }
-    }
-
-    if (codec_rev == 1) {
-        ALOGV("Detected tabla 1.x sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm");
-    } else if (codec_rev == 3) {
-        ALOGV("Detected sitar 1.x sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Sitar");
-    } else if (codec_rev == 40) {
-        ALOGV("Detected taiko sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Taiko");
-    } else if (codec_rev == 41) {
-        ALOGV("Detected taiko sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Taiko_CDP");
-    } else if (codec_rev == 42) {
-        ALOGV("Detected taiko sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Taiko_Fluid");
-    } else if (codec_rev == 43) {
-        ALOGV("Detected taiko liquid sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Taiko_liquid");
-    } else if (codec_rev == 44) {
-        ALOGV("Detected tapan sound card");
-        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_Tapan");
-    } else {
+    if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-mtp-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-cdp-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko_CDP", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-fluid-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko_Fluid", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-liquid-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko_liquid", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8930-sitar-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Sitar", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8960-tabla1x-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8226-tapan-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Tapan", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "msm8960-tabla1x-snd-card") ||
+               !strcmp((const char*)cardInfo->name, "apq8064-tabla-snd-card") ||
+               !strcmp((const char*)cardInfo->name, "msm8960-snd-card") ||
+               !strcmp((const char*)cardInfo->name, "msm-snd-card")) {
         property_get("ro.board.platform", platform, "");
         property_get("ro.baseband", baseband, "");
         if (!strcmp("msm8960", platform) && !strcmp("mdm", baseband)) {
@@ -264,17 +196,17 @@ AudioHardwareALSA::AudioHardwareALSA() :
             if((fp = fopen("/sys/devices/system/soc/soc0/platform_version","r")) == NULL) {
                 ALOGE("Cannot open /sys/devices/system/soc/soc0/platform_version file");
 
-                snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_2x_Fusion3");
+                snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_2x_Fusion3", cardInfo->card);
             } else {
                 while((fgets(platformVer, sizeof(platformVer), fp) != NULL)) {
                     ALOGV("platformVer %s", platformVer);
 
                     verNum = atoi(platformVer);
                     if (verNum == 0x10001) {
-                        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_I2SFusion");
+                        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_I2SFusion", cardInfo->card);
                         break;
                     } else {
-                        snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_2x_Fusion3");
+                        snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_2x_Fusion3", cardInfo->card);
                         break;
                     }
                 }
@@ -282,8 +214,13 @@ AudioHardwareALSA::AudioHardwareALSA() :
             fclose(fp);
         } else {
             ALOGV("Detected tabla 2.x sound card");
-            snd_use_case_mgr_open(&mUcMgr, "snd_soc_msm_2x");
+            snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_2x", cardInfo->card);
         }
+    }
+
+    if (mUcMgr == NULL) {
+        mStatus = NO_INIT;
+        return;
     }
 
 #ifdef QCOM_CSDCLIENT_ENABLED
@@ -836,8 +773,23 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
     }
 
     key = String8(AudioParameter::keyRouting);
-    if (param.getInt(key, device) == NO_ERROR) {
+    if (param.get(key, value) == NO_ERROR) {
         param.addInt(key, mCurDevice);
+    }
+
+
+    key = String8("snd_card_name");
+    if (param.get(key, value) == NO_ERROR) {
+        struct snd_ctl_card_info *cardInfo;
+        cardInfo = mALSADevice->getSoundCardInfo();
+        param.add(key, String8((const char*)cardInfo->name));
+    }
+
+    key = String8("snd_card_index");
+    if (param.get(key, value) == NO_ERROR) {
+        struct snd_ctl_card_info *cardInfo;
+        cardInfo = mALSADevice->getSoundCardInfo();
+        param.addInt(key, cardInfo->card);
     }
 
     ALOGV("AudioHardwareALSA::getParameters() %s", param.toString().string());

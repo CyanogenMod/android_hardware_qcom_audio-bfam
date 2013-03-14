@@ -632,7 +632,7 @@ int use_case_index)
     /* Check if voice call use case/modifier exists */
     if ((!strncmp(uc_mgr->card_ctxt_ptr->current_verb,
         SND_USE_CASE_VERB_VOLTE, strlen(SND_USE_CASE_VERB_VOLTE))) ||
-	(!strncmp(uc_mgr->card_ctxt_ptr->current_verb,
+        (!strncmp(uc_mgr->card_ctxt_ptr->current_verb,
         SND_USE_CASE_VERB_VOICECALL, strlen(SND_USE_CASE_VERB_VOICECALL))) ||
         (!strncmp(uc_mgr->card_ctxt_ptr->current_verb,
         SND_USE_CASE_VERB_SGLTECALL, strlen(SND_USE_CASE_VERB_SGLTECALL))) ||
@@ -650,7 +650,7 @@ int use_case_index)
                 index))) {
                 if ((!strncmp(ident_value, SND_USE_CASE_MOD_PLAY_VOLTE,
                     strlen(SND_USE_CASE_MOD_PLAY_VOLTE))) ||
-		    (!strncmp(ident_value, SND_USE_CASE_MOD_PLAY_VOICE,
+                    (!strncmp(ident_value, SND_USE_CASE_MOD_PLAY_VOICE,
                     strlen(SND_USE_CASE_MOD_PLAY_VOICE))) ||
                     (!strncmp(ident_value, SND_USE_CASE_MOD_PLAY_SGLTE,
                     strlen(SND_USE_CASE_MOD_PLAY_SGLTE))) ||
@@ -1171,7 +1171,7 @@ const char *ident, const char *device, int enable, int ctrl_list_type)
         }
         strlcpy(use_case, ident, sizeof(use_case));
         strlcat(use_case, device, sizeof(use_case));
-	ALOGV("Applying mixer controls for use case: %s", use_case);
+        ALOGV("Applying mixer controls for use case: %s", use_case);
         if ((uc_index = get_use_case_index(uc_mgr, use_case, ctrl_list_type)) < 0) {
             ALOGV("No valid use case found: %s", use_case );
             if ((uc_index =
@@ -2006,17 +2006,34 @@ int snd_use_case_set_case(snd_use_case_mgr_t *uc_mgr,
  * card_name - Sound card name.
  * returns 0 on success, otherwise a negative error code
  */
-int snd_use_case_mgr_open(snd_use_case_mgr_t **uc_mgr, const char *card_name)
+static int snd_ucm_open(snd_use_case_mgr_t **uc_mgr,
+                        const char *card_name,
+                        const int card_number)
 {
     snd_use_case_mgr_t *uc_mgr_ptr = NULL;
-    int index, ret = -EINVAL;
+    int fd, index, ret = -EINVAL;
     char tmp[2];
+    char path[128];
 
-    ALOGV("snd_use_case_open(): card_name %s", card_name);
+    ALOGD("%s(): card_name %s card_number %d",
+          __func__, card_name, card_number);
 
+    *uc_mgr = NULL;
     if (card_name == NULL) {
         ALOGE("snd_use_case_mgr_open: failed, invalid arguments");
         return ret;
+    }
+
+    /* Check if the config file is valid */
+    strlcpy(path, CONFIG_DIR, (strlen(CONFIG_DIR)+1));
+    strlcat(path, card_name, sizeof(path));
+
+    fd = open(path, O_RDONLY);
+    if (fd < 0) {
+        ALOGE("Could not open %s", path);
+        return ret;
+    } else {
+        close(fd);
     }
 
     for (index = 0; index < (int)MAX_NUM_CARDS; index++) {
@@ -2045,8 +2062,15 @@ int snd_use_case_mgr_open(snd_use_case_mgr_t **uc_mgr, const char *card_name)
             uc_mgr_ptr = NULL;
             return -ENOMEM;
         }
-        uc_mgr_ptr->card_ctxt_ptr->card_number =
-            card_mapping_list[index].card_number;
+
+        /* card_number -1 indicates to use default card number */
+        if (card_number >= 0) {
+            uc_mgr_ptr->card_ctxt_ptr->card_number = card_number;
+        } else {
+            uc_mgr_ptr->card_ctxt_ptr->card_number =
+                card_mapping_list[index].card_number;
+        }
+
         uc_mgr_ptr->card_ctxt_ptr->card_name =
             (char *)malloc((strlen(card_name)+1)*sizeof(char));
         if (uc_mgr_ptr->card_ctxt_ptr->card_name == NULL) {
@@ -2087,7 +2111,7 @@ int snd_use_case_mgr_open(snd_use_case_mgr_t **uc_mgr, const char *card_name)
                 SND_USE_CASE_VERB_INACTIVE, MAX_STR_LEN);
         /* Reset all mixer controls if any applied
          * previously for the same card */
-    snd_use_case_mgr_reset(uc_mgr_ptr);
+        snd_use_case_mgr_reset(uc_mgr_ptr);
         uc_mgr_ptr->card_ctxt_ptr->current_verb_index = -1;
         /* Parse config files and update mixer controls */
         ret = snd_ucm_parse(&uc_mgr_ptr);
@@ -2106,6 +2130,19 @@ int snd_use_case_mgr_open(snd_use_case_mgr_t **uc_mgr, const char *card_name)
     return ret;
 }
 
+
+int snd_use_case_mgr_open(snd_use_case_mgr_t **uc_mgr, const char *card_name)
+{
+    /* -1 indicates to use default sound card number */
+    return snd_ucm_open(uc_mgr, card_name, -1);
+}
+
+int snd_use_case_mgr_create(snd_use_case_mgr_t **uc_mgr,
+                            const char *card_name,
+                            const int card_number)
+{
+    return snd_ucm_open(uc_mgr, card_name, card_number);
+}
 
 /**
  * \brief Reload and re-parse use case configuration files for sound card.
@@ -3408,14 +3445,16 @@ char **nxt_str, int verb_index, int ctrl_list_type)
             ALOGV("Name of section is %s\n", list->case_name);
         } else if (strcasestr(current_str, "PlaybackPCM") != NULL) {
             ret = snd_ucm_extract_dev_name(current_str,
-                      &list->playback_dev_name);
+                                           &list->playback_dev_name,
+                                           (*uc_mgr)->card_ctxt_ptr->card_number);
             if (ret < 0)
                 break;
             ALOGV("Device name of playback is %s\n",
                 list->playback_dev_name);
         } else if (strcasestr(current_str, "CapturePCM") != NULL) {
             ret = snd_ucm_extract_dev_name(current_str,
-                      &list->capture_dev_name);
+                                           &list->capture_dev_name,
+                                           (*uc_mgr)->card_ctxt_ptr->card_number);
             if (ret < 0)
                 break;
             ALOGV("Device name of capture is %s\n", list->capture_dev_name);
@@ -3587,12 +3626,15 @@ static int snd_ucm_extract_ec_ref_rx_mixer_ctl(char *buf, char **mixer_name)
 /* Extract a playback and capture device name of use case from config file
  * Returns 0 on sucess, negative error code otherwise
  */
-static int snd_ucm_extract_dev_name(char *buf, char **dev_name)
+static int snd_ucm_extract_dev_name(char *buf, char **dev_name, int card_number)
 {
     char key[] = "0123456789";
     char *p, *name = *dev_name;
-    char dev_pre[] = "hw:0,";
+    char dev_pre[10];
     char *temp_ptr;
+
+    /* Append the card number to the device name */
+    snprintf(dev_pre, sizeof(dev_pre), "hw:%u,", card_number);
 
     p = strpbrk(buf, key);
     if (p == NULL) {
