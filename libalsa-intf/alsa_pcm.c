@@ -679,6 +679,8 @@ static int pcm_write_nmmap(struct pcm *pcm, void *data, unsigned count)
 {
     struct snd_xferi x;
     int channels;
+    int format = pcm->format;
+
     if(pcm->flags & PCM_MONO)
         channels = 1;
     else if(pcm->flags & PCM_QUAD)
@@ -694,6 +696,9 @@ static int pcm_write_nmmap(struct pcm *pcm, void *data, unsigned count)
         return -EINVAL;
     x.buf = data;
     x.frames =  (count / (channels * 2)) ;
+
+    if (format == SNDRV_PCM_FORMAT_S24_LE)
+       x.frames = x.frames/2;
 
     for (;;) {
         if (!pcm->running) {
