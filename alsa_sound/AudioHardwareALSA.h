@@ -259,7 +259,7 @@ struct use_case_t {
 };
 
 typedef List < use_case_t > ALSAUseCaseList;
-
+class AudioSpeakerProtection;
 class ALSADevice
 {
 
@@ -275,6 +275,8 @@ public:
     status_t startVoiceCall(alsa_handle_t *handle);
     status_t startVoipCall(alsa_handle_t *handle);
     status_t startFm(alsa_handle_t *handle);
+    status_t startSpkProtRxTx(alsa_handle_t *handle, bool is_rx);
+    bool     isSpeakerinUse(unsigned long &secs);
     void     setVoiceVolume(int volume);
     void     setVoipVolume(int volume);
     void     setMicMute(int state);
@@ -309,11 +311,12 @@ public:
 #ifdef QCOM_ACDB_ENABLED
     void     setACDBHandle(void*);
 #endif
-
+    void     setSpkrProtHandle(AudioSpeakerProtection*);
     bool mSSRComplete;
     int mCurDevice;
 protected:
     friend class AudioHardwareALSA;
+    friend class AudioSpeakerProtection;
 private:
     void     switchDevice(alsa_handle_t *handle, uint32_t devices, uint32_t mode);
     int      getUseCaseType(const char *useCase);
@@ -341,7 +344,7 @@ private:
     status_t   exitReadFromProxy();
     void       initProxyParams();
     status_t   startProxy();
-
+    void       spkrCalibStatusUpdate(bool);
 private:
     char mMicType[25];
     char mCurRxUCMDevice[50];
@@ -383,7 +386,10 @@ private:
         long mBufferTime;
     };
     struct proxy_params mProxyParams;
-
+    bool mSpkrInUse;
+    bool mSpkrCalibrationDone;
+    struct timeval mSpkLastUsedTime;
+    AudioSpeakerProtection *mSpkrProt;
 };
 
 // ----------------------------------------------------------------------------
@@ -741,6 +747,33 @@ protected:
     AudioHardwareALSA *     mParent;
 };
 
+class AudioSpeakerProtection {
+public:
+    /*Feedback Speaker Protection functions*/
+    void startSpkrProcessing();
+    void stopSpkrProcessing();
+    void initialize(void  *);
+    AudioSpeakerProtection();
+    ~AudioSpeakerProtection();
+    void updateSpkrT0(int t0);
+private:
+    int spkCalibrate(int);
+    static void* spkrCalibrationThread(void *context);
+    int          mSpkrProtMode;
+    int          mSpkrProcessingState;
+    Mutex        mMutexSpkrProt;
+    pthread_t    mSpkrCalibrationThread;
+    int          mSpkrProtT0;
+    Mutex        mSpkrProtThermalSyncMutex;
+    Condition    mSpkrProtThermalSync;
+    ALSADevice*     mALSADevice;
+    void *mThermalHandle;
+    int   mThermalClientHandle;
+    void  *mAcdbHandle;
+    snd_use_case_mgr_t *mUcMgr;
+    AudioHardwareALSA *mParent;
+};
+
 class AudioHardwareALSA : public AudioHardwareBase
 {
 public:
@@ -837,8 +870,8 @@ public:
 
     void pauseIfUseCaseTunnelOrLPA();
     void resumeIfUseCaseTunnelOrLPA();
-
 private:
+    AudioSpeakerProtection mspkrProtection;
     status_t     openExtOutput(int device);
     status_t     closeExtOutput(int device);
     status_t     openA2dpOutput();
@@ -847,13 +880,13 @@ private:
     status_t     closeUsbOutput();
     status_t     stopExtOutThread();
     void         extOutThreadFunc();
+    static void* spkrCalibrationThread(void *context);
     static void* extOutThreadWrapper(void *context);
     void         setExtOutActiveUseCases_l(uint32_t activeUsecase);
     uint32_t     getExtOutActiveUseCases_l();
     void         clearExtOutActiveUseCases_l(uint32_t activeUsecase);
     uint32_t     useCaseStringToEnum(const char *usecase);
     void         switchExtOut(int device);
-
 protected:
     virtual status_t    dump(int fd, const Vector<String16>& args);
     virtual uint32_t    getVoipMode(int format);
@@ -880,6 +913,7 @@ protected:
     friend class AudioStreamOutALSA;
     friend class AudioStreamInALSA;
     friend class ALSAStreamOps;
+    friend class AudioSpeakerProtection;
 
     ALSADevice*     mALSADevice;
 
@@ -918,7 +952,6 @@ protected:
 
     void *mAcdbHandle;
     void *mCsdHandle;
-
     //fluence key value: fluencepro, fluence, or none
     char mFluenceKey[20];
     //A2DP variables

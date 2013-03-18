@@ -56,7 +56,8 @@ LOCAL_SRC_FILES := \
   AudioUsbALSA.cpp              \
   AudioUtil.cpp                 \
   AudioSessionOut.cpp           \
-  ALSADevice.cpp
+  ALSADevice.cpp                \
+  AudioSpeakerProtection.cpp
 
 LOCAL_STATIC_LIBRARIES := \
     libmedia_helper \
@@ -88,6 +89,7 @@ LOCAL_C_INCLUDES += hardware/libhardware_legacy/include
 LOCAL_C_INCLUDES += frameworks/base/include
 LOCAL_C_INCLUDES += system/core/include
 LOCAL_C_INCLUDES += system/media/audio_utils/include
+LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-acdb-util
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr

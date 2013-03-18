@@ -105,7 +105,11 @@ ALSADevice::ALSADevice() {
     mProxyParams.mCaptureBuffer = NULL;
     mProxyParams.mProxyState = proxy_params::EProxyClosed;
     mProxyParams.mProxyPcmHandle = NULL;
-
+    mSpkrInUse = false;
+    mSpkrCalibrationDone = false;
+    mSpkLastUsedTime.tv_sec = 0;
+    mSpkLastUsedTime.tv_usec = 0;
+    mSpkrProt = NULL;
     ALOGD("ALSA module opened");
 }
 
@@ -617,6 +621,14 @@ void ALSADevice::switchDevice(alsa_handle_t *handle, uint32_t devices, uint32_t 
 
     if (rxDevice != NULL) {
         snd_use_case_set(handle->ucMgr, "_enadev", rxDevice);
+        if (!strncmp(rxDevice, "Speaker", sizeof(mCurRxUCMDevice)) ||
+            !strncmp(rxDevice, "Speaker Protected", sizeof(mCurRxUCMDevice))) {
+            gettimeofday(&mSpkLastUsedTime, NULL);
+            mSpkrInUse = true;
+            if (mSpkrCalibrationDone && mSpkrProt) {
+                mSpkrProt->startSpkrProcessing();
+            }
+        }
         strlcpy(mCurRxUCMDevice, rxDevice, sizeof(mCurRxUCMDevice));
     }
     if (txDevice != NULL) {
@@ -1086,6 +1098,66 @@ Error:
     return NO_INIT;
 }
 
+status_t ALSADevice::startSpkProtRxTx(alsa_handle_t *handle, bool IsRx)
+{
+    char *devName = NULL;
+    unsigned flags = 0;
+    int err = NO_ERROR;
+
+    if (!handle) {
+        ALOGE("startSpkProtRxTx Invalid params dir %d",IsRx);
+        return -EINVAL;
+    }
+    ALOGV("startSpkProtRxTx for calib %p dir %d", handle,IsRx);
+    if (IsRx)
+        flags = PCM_OUT | PCM_STEREO;
+    else
+        flags = PCM_IN | PCM_STEREO;
+    if (deviceName(handle, flags, &devName) < 0) {
+        ALOGE("startSpkProtRxTx Failed  devicename dir %d", IsRx);
+        goto Error;
+    }
+    if (devName) {
+        handle->handle = pcm_open(flags, (char*)devName);
+    } else {
+         ALOGE("startSpkProtRxTx open failed for %s", devName);
+         return NO_INIT;
+    }
+    if (!handle->handle || (handle->handle->fd < 0)) {
+        ALOGE("startSpkProtRxTx pcm_open failed %s", devName);
+        goto Error;
+    }
+    handle->handle->flags = flags;
+    err = setHardwareParams(handle);
+    if(err != NO_ERROR) {
+        ALOGE("startSpkProtRxTx: setHardwareParams failed dir %d", IsRx);
+        goto Error;
+    }
+    err = pcm_prepare(handle->handle);
+    if(err != NO_ERROR) {
+        ALOGE("startSpkProtRxTx: setSoftwareParams failed dir %d", IsRx);
+        goto Error;
+    }
+
+    if (ioctl(handle->handle->fd, SNDRV_PCM_IOCTL_START)) {
+        ALOGE("startSpkProtRxTx: SNDRV_PCM_IOCTL_START failed dir %d", IsRx);
+        goto Error;
+    }
+    ALOGD("startSpkProtRxTx: Success dir %d", IsRx);
+    if (devName) {
+        free(devName);
+        devName = NULL;
+    }
+    return NO_ERROR;
+Error:
+    if (devName) {
+        free(devName);
+        devName = NULL;
+    }
+    close(handle);
+    return NO_INIT;
+}
+
 status_t ALSADevice::startFm(alsa_handle_t *handle)
 {
     char *devName = NULL;
@@ -1311,7 +1383,9 @@ status_t ALSADevice::standby(alsa_handle_t *handle)
         }
         disableDevice(handle);
     }
-
+    if (mSpkrCalibrationDone && mSpkrProt) {
+        mSpkrProt->stopSpkrProcessing();
+    }
     return err;
 }
 
@@ -1413,6 +1487,19 @@ int ALSADevice::getUseCaseType(const char *useCase)
     }
 }
 
+bool ALSADevice::isSpeakerinUse(unsigned long &secs)
+{
+    struct timeval usage;
+    gettimeofday(&usage, NULL);
+    if (mSpkrInUse) {
+        secs = 0;
+        return true;
+    } else {
+        secs = usage.tv_sec - mSpkLastUsedTime.tv_sec;
+        return false;
+    }
+}
+
 void ALSADevice::disableDevice(alsa_handle_t *handle)
 {
     unsigned usecase_type = 0;
@@ -1443,8 +1530,16 @@ void ALSADevice::disableDevice(alsa_handle_t *handle)
         ALOGV("usecase_type is %d\n", usecase_type);
         if (!(usecase_type & USECASE_TYPE_TX) && (strncmp(mCurTxUCMDevice, "None", 4)))
             snd_use_case_set(handle->ucMgr, "_disdev", mCurTxUCMDevice);
-        if (!(usecase_type & USECASE_TYPE_RX) && (strncmp(mCurRxUCMDevice, "None", 4)))
+        if (!(usecase_type & USECASE_TYPE_RX) && (strncmp(mCurRxUCMDevice, "None", 4))) {
+            if (!strncmp(mCurRxUCMDevice, "Speaker",sizeof(mCurRxUCMDevice)) ||
+                !strncmp(mCurRxUCMDevice, "Speaker Protected",
+                sizeof(mCurRxUCMDevice))) {
+                unsigned long secs;
+                gettimeofday(&mSpkLastUsedTime, NULL);
+                mSpkrInUse = false;
+            }
             snd_use_case_set(handle->ucMgr, "_disdev", mCurRxUCMDevice);
+        }
     } else {
         ALOGE("Invalid state, no valid use case found to disable");
     }
@@ -1563,7 +1658,11 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
                 return strdup(SND_USE_CASE_DEV_EARPIECE); /* HANDSET RX */
             }
         } else if (devices & AudioSystem::DEVICE_OUT_SPEAKER) {
-            return strdup(SND_USE_CASE_DEV_SPEAKER); /* SPEAKER RX */
+            if (!mSpkrCalibrationDone) {
+                return strdup(SND_USE_CASE_DEV_SPEAKER); /* SPEAKER RX */
+            } else {
+                return strdup(SND_USE_CASE_DEV_SPEAKER_PROTECTED); /* SPEAKER RX PROT*/
+            }
         } else if ((devices & AudioSystem::DEVICE_OUT_WIRED_HEADSET) ||
                    (devices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE)) {
             if (mDevSettingsFlag & ANC_FLAG) {
@@ -1658,11 +1757,17 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
                     }
 #else
                     if (((rxDevice != NULL) &&
-                        !strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
-                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1))) ||
+                        (!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1)) ||
+                        (!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1))
+                         ))) ||
                         ((rxDevice == NULL) &&
-                        !strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
-                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1)))) {
+                        (!strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1)) ||
+                        !strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1))))
+                        ) {
                         if (mFluenceMode == FLUENCE_MODE_ENDFIRE) {
                             if (mIsSglte == false) {
                                 return strdup(SND_USE_CASE_DEV_SPEAKER_DUAL_MIC_ENDFIRE); /* DUALMIC EF TX */
@@ -1695,11 +1800,16 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
 #endif
                 } else if ((mDevSettingsFlag & DMIC_FLAG) && (mInChannels > 1)) {
                     if (((rxDevice != NULL) &&
-                        !strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
+                        ((!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
                         (strlen(SND_USE_CASE_DEV_SPEAKER)+1))) ||
+                        (!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1))))) ||
                         ((rxDevice == NULL) &&
-                        !strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
-                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1)))) {
+                        ((!strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1))) ||
+                        (!strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1)))))
+                        ) {
                             if (mIsSglte == false) {
                                 return strdup(SND_USE_CASE_DEV_SPEAKER_DUAL_MIC_STEREO); /* DUALMIC EF TX */
                             }
@@ -1716,11 +1826,17 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
                     }
                 } else if ((mDevSettingsFlag & QMIC_FLAG) && (mInChannels == 1)) {
                     if (((rxDevice != NULL) &&
-                        !strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
+                        ((!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER,
                         (strlen(SND_USE_CASE_DEV_SPEAKER)+1))) ||
+                         (!strncmp(rxDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                         (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1))))
+                         ) ||
                         ((rxDevice == NULL) &&
-                        !strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
-                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1)))) {
+                        ((!strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER)+1))) ||
+                        (!strncmp(mCurRxUCMDevice, SND_USE_CASE_DEV_SPEAKER_PROTECTED,
+                        (strlen(SND_USE_CASE_DEV_SPEAKER_PROTECTED)+1)))))
+                        ) {
                             return strdup(SND_USE_CASE_DEV_QUAD_MIC); /* QUADMIC TX */
                     } else {
                         if ((rxDevice != NULL) &&
@@ -2653,5 +2769,15 @@ void  ALSADevice::setACDBHandle(void* handle)
 }
 #endif
 
+void ALSADevice::spkrCalibStatusUpdate(bool status)
+{
+    mSpkrCalibrationDone = status;
+}
 
+void ALSADevice::setSpkrProtHandle(AudioSpeakerProtection *handle)
+{
+    if (handle) {
+        mSpkrProt = handle;
+    }
+}
 }
