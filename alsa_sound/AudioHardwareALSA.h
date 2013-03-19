@@ -65,7 +65,7 @@ class AudioHardwareALSA;
 #define RECORD_LATENCY        96000
 #define VOICE_LATENCY         85333
 #define DEFAULT_BUFFER_SIZE   2048
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
 #define DEFAULT_MULTI_CHANNEL_BUF_SIZE    6144
 #else
 //4032 = 336(kernel buffer size) * 2(bytes pcm_16) * 6(number of channels)
@@ -76,7 +76,7 @@ class AudioHardwareALSA;
 #define PLAYBACK_LOW_LATENCY_BUFFER_SIZE   1024
 #define PLAYBACK_LOW_LATENCY  22000
 #define PLAYBACK_LOW_LATENCY_MEASURED  42000
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
 #define DEFAULT_IN_BUFFER_SIZE 512
 #define MIN_CAPTURE_BUFFER_SIZE_PER_CH   512
 #else

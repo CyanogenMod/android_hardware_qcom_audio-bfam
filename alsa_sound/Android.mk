@@ -22,8 +22,8 @@ LOCAL_CFLAGS += -DQCOM_TUNNEL_LPA_ENABLED
 LOCAL_CFLAGS += -DQCOM_SSR_ENABLED
 LOCAL_CFLAGS += -DQCOM_USBAUDIO_ENABLED
 
-ifeq ($(call is-board-platform,msm8974),true)
-  LOCAL_CFLAGS += -DTARGET_8974
+ifeq ($(call is-board-platform-in-list,msm8974 msm8226),true)
+  LOCAL_CFLAGS += -DTARGET_B_FAMILY
 endif
 
 ifneq ($(ALSA_DEFAULT_SAMPLE_RATE),)
@@ -98,6 +98,10 @@ ifeq ($(call is-board-platform,msm8974),true)
   LOCAL_MODULE := audio.primary.msm8974
 endif
 
+ifeq ($(call is-board-platform,msm8226),true)
+  LOCAL_MODULE := audio.primary.msm8226
+endif
+
 ifeq ($(call is-board-platform,msm8960),true)
   LOCAL_MODULE := audio.primary.msm8960
 endif
@@ -130,6 +134,10 @@ LOCAL_SRC_FILES := \
 
 ifeq ($(call is-board-platform,msm8974),true)
   LOCAL_MODULE := audio_policy.msm8974
+endif
+
+ifeq ($(call is-board-platform,msm8226),true)
+  LOCAL_MODULE := audio_policy.msm8226
 endif
 
 ifeq ($(call is-board-platform,msm8960),true)

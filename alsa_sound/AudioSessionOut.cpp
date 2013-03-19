@@ -186,7 +186,7 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
         ALOGW("AudioSessionOutALSA::setVolume(%f) over 1.0, assuming 1.0\n", volume);
         volume = 1.0;
     }
-#ifdef TARGET_8974
+#ifdef TARGET_B_FAMILY
     mStreamVol = (lrint((left * 0x2000)+0.5)) << 16 | (lrint((right * 0x2000)+0.5));
 #else
     mStreamVol = lrint((volume * 0x2000)+0.5);
