@@ -223,16 +223,16 @@ status_t AudioPolicyManager::setDeviceConnectionState(audio_devices_t device,
             mpClientInterface->setParameters(mPrimaryOutput, param.toString());
         }
 #endif
+#ifdef QCOM_ANC_HEADSET_ENABLED
+        if(device == AUDIO_DEVICE_OUT_ANC_HEADPHONE ||
+           device == AUDIO_DEVICE_OUT_ANC_HEADSET) {
+            if(newDevice == 0){
+                newDevice = getDeviceForStrategy(STRATEGY_MEDIA, false);
+            }
+        }
+#endif
         for (size_t i = 0; i < mOutputs.size(); i++) {
             audio_devices_t newDevice = getNewDevice(mOutputs.keyAt(i), true /*fromCache*/);
-#ifdef QCOM_ANC_HEADSET_ENABLED
-            if(device == AUDIO_DEVICE_OUT_ANC_HEADPHONE ||
-               device == AUDIO_DEVICE_OUT_ANC_HEADSET) {
-                if(newDevice == 0){
-                    newDevice = getDeviceForStrategy(STRATEGY_MEDIA, false);
-                }
-            }
-#endif
             setOutputDevice(mOutputs.keyAt(i),
                             getNewDevice(mOutputs.keyAt(i), true /*fromCache*/),
                             true,
