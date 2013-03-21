@@ -71,6 +71,9 @@ AudioUsbALSA::AudioUsbALSA()
     mproxyRecordingHandle = NULL;
     musbPlaybackHandle  = NULL;
     mproxyPlaybackHandle = NULL;
+
+    mUsbSoundCard = 1;
+    mProxySoundCard = 0;
 }
 
 AudioUsbALSA::~AudioUsbALSA()
@@ -79,6 +82,14 @@ AudioUsbALSA::~AudioUsbALSA()
     mkillRecordingThread = true;
 }
 
+void AudioUsbALSA::setProxySoundCard(int sndCardIndex)
+{
+    /* Proxy port and USB headset are related to two different sound cards */
+    if (sndCardIndex == mUsbSoundCard) {
+        mUsbSoundCard = mProxySoundCard;
+    }
+    mProxySoundCard = sndCardIndex;
+}
 
 int AudioUsbALSA::getnumOfRates(char *ratesStr){
     int i, size = 0;
@@ -108,17 +119,21 @@ status_t AudioUsbALSA::getCap(char * type, int &channels, int &sampleRate)
     char *read_buf, *str_start, *channel_start, *ratesStr, *ratesStrForVal,
     *ratesStrStart, *chString, *nextSRStr, *test, *nextSRString, *temp_ptr;
     struct stat st;
+    char path[128];
+
     memset(&st, 0x0, sizeof(struct stat));
     sampleRate = 0;
-    fd = open(PATH, O_RDONLY);
+    snprintf(path, sizeof(path), "/proc/asound/card%u/stream0", mUsbSoundCard);
+
+    fd = open(path, O_RDONLY);
     if (fd <0) {
-        ALOGE("ERROR: failed to open config file %s error: %d\n", PATH, errno);
+        ALOGE("ERROR: failed to open config file %s error: %d\n", path, errno);
         close(fd);
         return UNKNOWN_ERROR;
     }
 
     if (fstat(fd, &st) < 0) {
-        ALOGE("ERROR: failed to stat %s error %d\n", PATH, errno);
+        ALOGE("ERROR: failed to stat %s error %d\n", path, errno);
         close(fd);
         return UNKNOWN_ERROR;
     }
@@ -450,6 +465,9 @@ void AudioUsbALSA::RecordingThreadEntry() {
     u_int8_t *srcUsb_addr = NULL;
     u_int8_t *dstProxy_addr = NULL;
     int err;
+    char usbDeviceName[10];
+    char proxyDeviceName[10];
+
     pfdProxyRecording[0].fd = -1;
     pfdUsbRecording[0].fd = -1 ;
 
@@ -463,7 +481,10 @@ void AudioUsbALSA::RecordingThreadEntry() {
         channelFlag = PCM_STEREO;
     }
 
-    musbRecordingHandle = configureDevice(PCM_IN|channelFlag|PCM_MMAP, (char *)"hw:1,0",
+    snprintf(usbDeviceName, sizeof(usbDeviceName), "hw:%u,0", mUsbSoundCard);
+    ALOGV("Configuring USB capture device %s", usbDeviceName);
+
+    musbRecordingHandle = configureDevice(PCM_IN|channelFlag|PCM_MMAP, usbDeviceName,
                                          msampleRateCapture, mchannelsCapture,2048,false);
     if (!musbRecordingHandle) {
         ALOGE("ERROR: Could not configure USB device for recording");
@@ -475,7 +496,10 @@ void AudioUsbALSA::RecordingThreadEntry() {
     pfdUsbRecording[0].fd = musbRecordingHandle->fd;                           //DEBUG
     pfdUsbRecording[0].events = POLLIN;
 
-    mproxyRecordingHandle = configureDevice(PCM_OUT|channelFlag|PCM_MMAP, (char *)"hw:0,7",
+    snprintf(proxyDeviceName, sizeof(proxyDeviceName), "hw:%u,7", mProxySoundCard);
+    ALOGV("Configuring Proxy playback device %s", proxyDeviceName);
+
+    mproxyRecordingHandle = configureDevice(PCM_OUT|channelFlag|PCM_MMAP, proxyDeviceName,
                                             msampleRateCapture, mchannelsCapture,2048,false);
     if (!mproxyRecordingHandle) {
         ALOGE("ERROR: Could not configure Proxy for recording");
@@ -867,6 +891,9 @@ void AudioUsbALSA::PlaybackThreadEntry() {
     unsigned int tmp;
     int numOfBytesWritten;
     int err;
+    char usbDeviceName[10];
+    char proxyDeviceName[10];
+
     mdstUsb_addr = NULL;
     msrcProxy_addr = NULL;
 
@@ -888,7 +915,11 @@ void AudioUsbALSA::PlaybackThreadEntry() {
             ALOGE("ERROR: Could not get playback capabilities from usb device");
             return;
         }
-        musbPlaybackHandle = configureDevice(PCM_OUT|PCM_STEREO|PCM_MMAP, (char *)"hw:1,0",
+
+        snprintf(usbDeviceName, sizeof(usbDeviceName), "hw:%u,0", mUsbSoundCard);
+        ALOGD("Configuring USB Playback device %s", usbDeviceName);
+
+        musbPlaybackHandle = configureDevice(PCM_OUT|PCM_STEREO|PCM_MMAP, usbDeviceName,
                                          msampleRatePlayback, mchannelsPlayback, USB_PERIOD_SIZE, true);
         if (!musbPlaybackHandle || mkillPlayBackThread) {
             ALOGE("ERROR: configureUsbDevice failed, returning");
@@ -905,7 +936,10 @@ void AudioUsbALSA::PlaybackThreadEntry() {
             pfdUsbPlayback[1].events = (POLLIN | POLLOUT | POLLERR | POLLNVAL | POLLHUP);
         }
 
-        mproxyPlaybackHandle = configureDevice(PCM_IN|PCM_STEREO|PCM_MMAP, (char *)"hw:0,8",
+        snprintf(proxyDeviceName, sizeof(proxyDeviceName), "hw:%u,8", mProxySoundCard);
+        ALOGV("Configuring Proxy capture device %s", proxyDeviceName);
+
+        mproxyPlaybackHandle = configureDevice(PCM_IN|PCM_STEREO|PCM_MMAP, proxyDeviceName,
                                msampleRatePlayback, mchannelsPlayback, PROXY_PERIOD_SIZE, false);
         if (!mproxyPlaybackHandle || mkillPlayBackThread) {
            ALOGE("ERROR: Could not configure Proxy, returning");

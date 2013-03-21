@@ -359,10 +359,14 @@ static int snd_ucm_extract_name(char *buf, char **case_name);
 static int snd_ucm_extract_acdb(char *buf, int *id, int *cap);
 static int snd_ucm_extract_effects_mixer_ctl(char *buf, char **mixer_name);
 static int snd_ucm_extract_ec_ref_rx_mixer_ctl(char *buf, char **mixer_name);
-static int snd_ucm_extract_dev_name(char *buf, char **dev_name);
+static int snd_ucm_extract_dev_name(char *buf, char **dev_name, int card_number);
 static int snd_ucm_extract_controls(char *buf, mixer_control_t **mixer_list, int count);
 static int snd_ucm_print(snd_use_case_mgr_t *uc_mgr);
 static void snd_ucm_free_mixer_list(snd_use_case_mgr_t **uc_mgr);
+
+int snd_use_case_mgr_create(snd_use_case_mgr_t **uc_mgr,
+                            const char *card_name,
+                            const int card_number);
 #ifdef __cplusplus
 }
 #endif

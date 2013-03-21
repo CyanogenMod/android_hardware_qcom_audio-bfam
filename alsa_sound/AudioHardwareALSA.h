@@ -57,6 +57,8 @@ class AudioHardwareALSA;
 #define ALSA_HARDWARE_MODULE_ID "alsa"
 #define ALSA_HARDWARE_NAME      "alsa"
 
+#define MAX_SOUND_CARDS 4
+
 #define DEFAULT_SAMPLING_RATE 48000
 #define DEFAULT_CHANNEL_MODE  2
 #define VOICE_SAMPLING_RATE   8000
@@ -268,6 +270,8 @@ public:
     ALSADevice();
     virtual ~ALSADevice();
 //    status_t init(alsa_device_t *module, ALSAHandleList &list);
+    struct snd_ctl_card_info *getSoundCardInfo();
+    status_t initCheck();
     status_t open(alsa_handle_t *handle);
     status_t close(alsa_handle_t *handle);
     status_t standby(alsa_handle_t *handle);
@@ -362,8 +366,12 @@ private:
     int mInChannels;
     bool mIsSglte;
 #ifdef SEPERATED_AUDIO_INPUT
-    int mInput_source
+    int mInput_source;
 #endif
+
+    struct snd_ctl_card_info mSndCardInfo;
+    status_t mStatus;
+
 //   ALSAHandleList  *mDeviceList;
 
     struct proxy_params {
@@ -906,7 +914,7 @@ protected:
 
     void                disableVoiceCall(char* verb, char* modifier, int mode, int device);
     void                enableVoiceCall(char* verb, char* modifier, int mode, int device);
-    bool                routeVoiceCall(int device, int	newMode);
+    bool                routeVoiceCall(int device, int  newMode);
     bool                routeVoLTECall(int device, int newMode);
     bool                routeSGLTECall(int device, int newMode);
     friend class AudioSessionOutALSA;

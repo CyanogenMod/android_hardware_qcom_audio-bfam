@@ -49,8 +49,6 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #define BUFFSIZE 1000000
 
-#define PATH "/proc/asound/card1/stream0"
-
 extern "C" {
    #include <sound/asound.h>
    #include "alsa_audio.h"
@@ -68,6 +66,8 @@ class AudioUsbALSA;
 class AudioUsbALSA
 {
 private:
+    int mUsbSoundCard;
+    int mProxySoundCard;
     int mproxypfdPlayback;
     int musbpfdPlayback;
     int mnfdsPlayback;
@@ -133,6 +133,9 @@ public:
     bool getkillUsbRecordingThread() {
         return mkillRecordingThread;
     }
+
+    void setProxySoundCard(int soundCard);
+
     //Playback
     void startPlayback();
 

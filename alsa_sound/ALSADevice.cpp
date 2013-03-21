@@ -55,7 +55,7 @@ static int (*acdb_loader_get_ecrx_device)(int acdb_id);
 #define AFE_PROXY_PERIOD_SIZE 3072
 #define KILL_A2DP_THREAD 1
 #define SIGNAL_A2DP_THREAD 2
-#define PROXY_CAPTURE_DEVICE_NAME (const char *)("hw:0,8")
+
 namespace sys_close {
     ssize_t lib_close(int fd) {
         return close(fd);
@@ -66,6 +66,11 @@ namespace android_audio_legacy
 {
 
 ALSADevice::ALSADevice() {
+    FILE *fp;
+    char soundCardInfo[100];
+    int i, sleep_retry = 0;
+    char device[32];
+
 #ifdef USES_FLUENCE_INCALL
     mDevSettingsFlag = TTY_OFF | DMIC_FLAG;
 #else
@@ -76,6 +81,8 @@ ALSADevice::ALSADevice() {
     mCallMode = AUDIO_MODE_NORMAL;
     mInChannels = 0;
     char value[128], platform[128], baseband[128];
+
+    mStatus = OK;
 
     property_get("persist.audio.handset.mic",value,"0");
     strlcpy(mMicType, value, sizeof(mMicType));
@@ -96,7 +103,64 @@ ALSADevice::ALSADevice() {
     strlcpy(mCurRxUCMDevice, "None", sizeof(mCurRxUCMDevice));
     strlcpy(mCurTxUCMDevice, "None", sizeof(mCurTxUCMDevice));
 
-    mMixer = mixer_open("/dev/snd/controlC0");
+    /* Make sure sound cards are populated */
+    if ((fp = fopen("/proc/asound/cards", "r")) == NULL) {
+        ALOGE("Cannot open /proc/asound/cards file to get sound card info");
+        mStatus = NO_INIT;
+        return;
+    } else {
+        while ((fgets(soundCardInfo, sizeof(soundCardInfo), fp) != NULL)) {
+            if (strstr(soundCardInfo, "no soundcards")) {
+                ALOGE("NO SOUND CARD DETECTED");
+                if (sleep_retry < SOUND_CARD_SLEEP_RETRY) {
+                    ALOGD("Sleeping for 100 ms");
+                    usleep(SOUND_CARD_SLEEP_WAIT * 1000);
+                    sleep_retry++;
+                    fseek(fp, 0, SEEK_SET);
+                    continue;
+                } else {
+                    ALOGE("Failed %d attempts for sound card detection", sleep_retry);
+                    fclose(fp);
+                    mStatus = NO_INIT;
+                    return;
+                }
+            } else {
+                break;
+            }
+        }
+        fclose(fp);
+    }
+
+    for (i = 0; i < MAX_SOUND_CARDS; i++) {
+        snprintf(device, sizeof(device), "/dev/snd/controlC%u", i);
+
+        mMixer = mixer_open(device);
+        if (!mMixer) {
+            /* Check the next card */
+            continue;
+        }
+
+        memset(&mSndCardInfo, 0, sizeof(mSndCardInfo));
+
+        if (ioctl(mMixer->fd, SNDRV_CTL_IOCTL_CARD_INFO, &mSndCardInfo) >= 0) {
+            ALOGD("name %s", mSndCardInfo.name);
+            if (strstr((const char*)mSndCardInfo.name, "msm8974") ||
+                strstr((const char*)mSndCardInfo.name, "msm8960") ||
+                strstr((const char*)mSndCardInfo.name, "msm8930") ||
+                strstr((const char*)mSndCardInfo.name, "msm8226") ||
+                strstr((const char*)mSndCardInfo.name, "apq8064") ) {
+                break;
+            }
+        }
+
+        mixer_close(mMixer);
+        mMixer = NULL;
+    }
+
+    if (!mMixer) {
+        ALOGE("Could not find a valid sound card");
+        mStatus = NO_INIT;
+    }
 
     mProxyParams.mExitRead = false;
     mProxyParams.mPfdProxy[1].fd = -1;
@@ -123,6 +187,16 @@ ALSADevice::~ALSADevice()
     }
     mProxyParams.mProxyState = proxy_params::EProxyClosed;
 
+}
+
+status_t ALSADevice::initCheck()
+{
+    return mStatus;
+}
+
+struct snd_ctl_card_info *ALSADevice::getSoundCardInfo()
+{
+    return &mSndCardInfo;
 }
 
 static bool isPlatformFusion3() {
@@ -2519,9 +2593,12 @@ status_t ALSADevice::openProxyDevice()
     struct snd_pcm_hw_params *params = NULL;
     struct snd_pcm_sw_params *sparams = NULL;
     int flags = (DEBUG_ON | PCM_MMAP| PCM_STEREO | PCM_IN);
+    char deviceName[10];
+
+    snprintf(deviceName, sizeof(deviceName), "hw:%u,8", mSndCardInfo.card);
 
     ALOGV("openProxyDevice");
-    mProxyParams.mProxyPcmHandle = pcm_open(flags, PROXY_CAPTURE_DEVICE_NAME);
+    mProxyParams.mProxyPcmHandle = pcm_open(flags, deviceName);
     if (!pcm_ready(mProxyParams.mProxyPcmHandle)) {
         ALOGE("Opening proxy device failed");
         goto bail;
