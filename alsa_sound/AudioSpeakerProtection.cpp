@@ -143,7 +143,7 @@ void AudioSpeakerProtection::updateSpkrT0(int t0)
 AudioSpeakerProtection::AudioSpeakerProtection():
 	mParent(NULL),mALSADevice(NULL),mSpkrProtMode(SPKR_NOT_CALIBRATED),
     mSpkrProcessingState(SPKR_PROCESSING_IN_IDLE),
-    mThermalClientHandle(-1),mThermalHandle(NULL),
+    mThermalClientHandle(0),mThermalHandle(NULL),
     mAcdbHandle(NULL), mUcMgr(NULL),mSpkrProtT0(-1)
 {
 }
