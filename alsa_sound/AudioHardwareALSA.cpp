@@ -107,7 +107,6 @@ AudioHardwareALSA::AudioHardwareALSA() :
     mVoice2CallActive = 0;
     mIsFmActive = 0;
     mDevSettingsFlag = 0;
-
 #ifdef QCOM_USBAUDIO_ENABLED
     mAudioUsbALSA = new AudioUsbALSA();
     musbPlaybackState = 0;
@@ -689,7 +688,16 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         }
         param.remove(key);
     }
-
+#ifdef QCOM_WFD_ENABLED
+    key = String8("wfd_channel_cap");
+    if (param.get(key, value) == NO_ERROR) {
+        if(mALSADevice){
+            mALSADevice->setWFDChannelCaps(atoi(value));
+            ALOGV("Channel capability set");
+        }
+        param.remove(key);
+    }
+#endif
     key = String8("card");
     if (param.get(key, value) == NO_ERROR) {
         if (mUsbStream != NULL) {
@@ -914,6 +922,20 @@ void AudioHardwareALSA::startUsbRecordingIfNotStarted(){
           musbRecordingState, mAudioUsbALSA->getkillUsbRecordingThread());
     if((!musbRecordingState) || (mAudioUsbALSA->getkillUsbRecordingThread() == true)) {
         mAudioUsbALSA->startRecording();
+    }
+}
+#endif
+
+#ifdef QCOM_WFD_ENABLED
+void AudioHardwareALSA::getWFDAudioSinkCaps( int32_t &channelCount, int32_t &sampleRate) {
+    // Sample rate set with 48K
+    sampleRate = 48000;
+    channelCount = mALSADevice->getWFDChannelCaps();
+    if(0 == channelCount) {
+        // Default is stereo with 2 channels
+        channelCount = 2;
+        ALOGW("ALSADevice gave invalid channel capabilities\
+           channelCount = %d, sampleRate = %d", channelCount, sampleRate);
     }
 }
 #endif
@@ -1284,7 +1306,11 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
     } else
 #endif
     if ((flags & AUDIO_OUTPUT_FLAG_DIRECT) &&
-        (devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)) {
+        ((devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+#ifdef QCOM_WFD_ENABLED
+        || (devices == AudioSystem::DEVICE_OUT_PROXY)
+#endif
+        )) {
         ALOGD("Multi channel PCM");
         alsa_handle_t alsa_handle;
         EDID_AUDIO_INFO info = { 0 };
@@ -1294,10 +1320,12 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
         alsa_handle.handle = 0;
         alsa_handle.format = SNDRV_PCM_FORMAT_S16_LE;
 
+        if(devices == AUDIO_DEVICE_OUT_AUX_DIGITAL) {
 #ifdef TARGET_B_FAMILY
         char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT + 1];
                               // additional 1 byte for length of the EDID
-        if (mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
+        if ((devices == AUDIO_DEVICE_OUT_AUX_DIGITAL) &&
+                 mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
             if (!AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
                 ALOGE("openOutputStream: Failed to get HDMI sink capabilities");
                 return NULL;
@@ -1309,8 +1337,21 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
             return NULL;
         }
 #endif
+        }
         if (0 == *channels) {
-            alsa_handle.channels = info.AudioBlocksArray[info.nAudioBlocks-1].nChannels;
+            if(devices == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+                alsa_handle.channels = info.AudioBlocksArray[info.nAudioBlocks-1].nChannels;
+#ifdef QCOM_WFD_ENABLED
+            else if(devices == AudioSystem::DEVICE_OUT_PROXY) {
+                ALOGD("Setting Sink capability for WFD Direct Output");
+                int32_t sampleRate = 0 , channelCount = 0;
+                //We need to know if sink supports 6 or 8 channel.
+                //For stereo we dont need to set channel count as
+                //we get stereo data from proxy by default.
+                getWFDAudioSinkCaps(channelCount, sampleRate);
+                mALSADevice->setProxyPortChannelCount(channelCount);
+            }
+#endif
             if (alsa_handle.channels > 8) {
                 alsa_handle.channels = 8;
             }
@@ -1324,8 +1365,12 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
             alsa_handle.bufferSize = DEFAULT_BUFFER_SIZE;
         }
         if (0 == *sampleRate) {
-            alsa_handle.sampleRate = info.AudioBlocksArray[info.nAudioBlocks-1].nSamplingFreq;
-            *sampleRate = alsa_handle.sampleRate;
+            if(devices == AUDIO_DEVICE_OUT_AUX_DIGITAL){
+                alsa_handle.sampleRate = info.AudioBlocksArray[info.nAudioBlocks-1].nSamplingFreq;
+                *sampleRate = alsa_handle.sampleRate;
+            }else if (devices & AudioSystem::DEVICE_OUT_PROXY) {
+                *sampleRate = 48000;
+            }
         } else {
             alsa_handle.sampleRate = *sampleRate;
         }
@@ -1484,6 +1529,18 @@ AudioHardwareALSA::openOutputSession(uint32_t devices,
     ALSAHandleList::iterator it = mDeviceList.end();
     it--;
     ALOGD("useCase %s", it->useCase);
+#ifdef QCOM_WFD_ENABLED
+    if(devices & AudioSystem::DEVICE_OUT_PROXY){
+        ALOGE("Setting Sink capability for WFD");
+        int32_t sampleRate = 0 , channelCount = 0;
+        //We need to know if sink supports 6 or 8 channel.
+        //For stereo we dont need to set channel count as
+        //we get stereo data from proxy by default.
+        getWFDAudioSinkCaps(channelCount, sampleRate);
+        mALSADevice->setProxyPortChannelCount(channelCount);
+    }
+#endif
+
 #ifdef QCOM_USBAUDIO_ENABLED
     if((devices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)||
        (devices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)){
@@ -1609,6 +1666,7 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
            it = mDeviceList.end();
            it--;
            ALOGD("mCurrDevice: %d", mCurDevice);
+
 #ifdef QCOM_USBAUDIO_ENABLED
            if((mCurDevice == AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)||
               (mCurDevice == AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)){
