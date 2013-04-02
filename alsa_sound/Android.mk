@@ -27,6 +27,9 @@ ifeq ($(call is-board-platform-in-list,msm8974 msm8226),true)
 ifdef DOLBY_DAP
   LOCAL_CFLAGS += -DDOLBY_DAP
 endif
+ifeq ($(QCOM_LISTEN_FEATURE),true)
+  LOCAL_CFLAGS += -DQCOM_LISTEN_FEATURE_ENABLE
+endif
 endif
 
 ifneq ($(ALSA_DEFAULT_SAMPLE_RATE),)
@@ -84,6 +87,10 @@ else
  LOCAL_SHARED_LIBRARIES += libdl
 endif
 
+ifeq ($(QCOM_LISTEN_FEATURE),true)
+    LOCAL_SHARED_LIBRARIES += liblistenhardware
+endif
+
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-alsa
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/libalsa-intf
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/surround_sound/
@@ -93,6 +100,11 @@ LOCAL_C_INCLUDES += frameworks/base/include
 LOCAL_C_INCLUDES += system/core/include
 LOCAL_C_INCLUDES += system/media/audio_utils/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-acdb-util
+
+ifeq ($(QCOM_LISTEN_FEATURE),true)
+    LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-listen
+endif
+
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr

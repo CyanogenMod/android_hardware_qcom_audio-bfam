@@ -105,6 +105,7 @@ extern "C" {
 #define SND_USE_CASE_VERB_IP_VOICECALL		"Voice Call IP"
 #define SND_USE_CASE_VERB_ANALOG_RADIO		"FM Analog Radio"
 #define SND_USE_CASE_VERB_DIGITAL_RADIO		"FM Digital Radio"
+#define SND_USE_CASE_VERB_LISTEN_VOICE_WAKEUP   "Listen Voice Wakeup"
 /* add new verbs to end of list */
 
 
@@ -151,6 +152,7 @@ extern "C" {
 #define SND_USE_CASE_MOD_PLAY_VOICE		"Play Voice"
 #define SND_USE_CASE_MOD_PLAY_TONE		"Play Tone"
 #define SND_USE_CASE_MOD_ECHO_REF		"Echo Reference"
+#define SND_USE_CASE_MOD_LISTEN_VOICE_WAKEUP "Listen Voice Wakeup Mod"
 /* add new modifiers to end of list */
 
 

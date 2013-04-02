@@ -992,7 +992,11 @@ int getUseCaseType(const char *useCase)
         !strncmp(useCase, SND_USE_CASE_MOD_CAPTURE_FM,
             MAX_LEN(useCase,SND_USE_CASE_MOD_CAPTURE_FM)) ||
         !strncmp(useCase, SND_USE_CASE_MOD_CAPTURE_A2DP_FM,
-            MAX_LEN(useCase,SND_USE_CASE_MOD_CAPTURE_A2DP_FM))) {
+            MAX_LEN(useCase,SND_USE_CASE_MOD_CAPTURE_A2DP_FM)) ||
+       !strncmp(useCase, SND_USE_CASE_VERB_LISTEN_VOICE_WAKEUP,
+           MAX_LEN(useCase,SND_USE_CASE_VERB_LISTEN_VOICE_WAKEUP)) ||
+       !strncmp(useCase, SND_USE_CASE_MOD_LISTEN_VOICE_WAKEUP,
+           MAX_LEN(useCase,SND_USE_CASE_MOD_LISTEN_VOICE_WAKEUP))) {
         return CAP_TX;
     } else if (!strncmp(useCase, SND_USE_CASE_VERB_VOICECALL,
             MAX_LEN(useCase,SND_USE_CASE_VERB_VOICECALL)) ||
