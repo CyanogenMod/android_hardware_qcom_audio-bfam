@@ -15,5 +15,9 @@ endif
 ifeq ($(call is-board-platform,msm8226),true)
 include $(AENC_EVRC_PATH)/qdsp6/Android.mk
 endif
+ifeq ($(call is-board-platform,msm8610),true)
+include $(AENC_EVRC_PATH)/qdsp6/Android.mk
+endif
+
 
 endif

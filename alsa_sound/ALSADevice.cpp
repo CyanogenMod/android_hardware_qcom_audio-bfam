@@ -155,6 +155,7 @@ ALSADevice::ALSADevice() {
             if (strstr((const char*)mSndCardInfo.name, "msm8974") ||
                 strstr((const char*)mSndCardInfo.name, "msm8960") ||
                 strstr((const char*)mSndCardInfo.name, "msm8930") ||
+                strstr((const char*)mSndCardInfo.name, "msm8x10") ||
                 strstr((const char*)mSndCardInfo.name, "msm8226") ||
                 strstr((const char*)mSndCardInfo.name, "apq8064") ) {
                 break;
