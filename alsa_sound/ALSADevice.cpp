@@ -2359,6 +2359,11 @@ status_t ALSADevice::getMixerControlExt(const char *name, unsigned **getValues, 
     if (!ctl)
         return BAD_VALUE;
 
+    if (mixer_ctl_get_elem_info(ctl) < 0) {
+        ALOGE("Control get elem info failed");
+        return BAD_VALUE;
+    }
+
     mixer_ctl_get_mulvalues(ctl, getValues, count);
     return NO_ERROR;
 }

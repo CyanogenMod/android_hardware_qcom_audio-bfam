@@ -448,6 +448,18 @@ void mixer_ctl_get(struct mixer_ctl *ctl, unsigned *value)
     ALOGV("\n");
 }
 
+int mixer_ctl_get_elem_info(struct mixer_ctl *ctl)
+{
+    struct snd_ctl_elem_info *ei = ctl->info;
+
+    if (ioctl(ctl->mixer->fd, SNDRV_CTL_IOCTL_ELEM_INFO, ei) < 0)
+        return -1;
+
+    ALOGV("type: %d, count: %d\n", ctl->info->type, ctl->info->count);
+
+    return 0;
+}
+
 void mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *count)
 {
     struct snd_ctl_elem_value ev;
