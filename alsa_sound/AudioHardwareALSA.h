@@ -899,6 +899,7 @@ public:
     void startSpkrProcessing();
     void stopSpkrProcessing();
     void initialize(void  *);
+    void cancelCalibration();
     AudioSpeakerProtection();
     ~AudioSpeakerProtection();
     void updateSpkrT0(int t0);
@@ -912,7 +913,12 @@ private:
     int          mSpkrProtT0;
     Mutex        mSpkrProtThermalSyncMutex;
     Condition    mSpkrProtThermalSync;
-    ALSADevice*     mALSADevice;
+    int          mCancelSpkrCalib;
+    Condition    mSpkrCalibCancel;
+    Mutex        mSpkrCalibCancelAckMutex;
+    Condition    mSpkrCalibCancelAck;
+    ALSADevice*  mALSADevice;
+    pthread_t    mSpeakerProtthreadid;
     void *mThermalHandle;
     int   mThermalClientHandle;
     void  *mAcdbHandle;
