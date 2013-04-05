@@ -2374,6 +2374,36 @@ void ALSADevice::setChannelAlloc(int channelAlloc)
     return;
 }
 
+status_t ALSADevice::setDMID()
+{
+    status_t err = NO_ERROR;
+    char dmid[128];
+    char** setValues;
+    int value;
+    property_get("dmid",dmid,"0");
+    sscanf(dmid, "%d", &value);
+    ALOGD("DMID value: %d", value);
+    setValues = (char**)malloc(sizeof(char*));
+    if (setValues == NULL) {
+          return BAD_VALUE;
+    }
+    setValues[0] = (char*)malloc(12*sizeof(char));
+                   // 12 - to hold max 32 bit length of char in property
+    if (setValues[0] == NULL) {
+          free(setValues);
+          return BAD_VALUE;
+    }
+
+    sprintf(setValues[0], "%d", value);
+
+    err = setMixerControlExt("DS1 Security", 1, setValues);
+    if (err != NO_ERROR)
+        ALOGE("set DS1 Manufacturer ID failed");
+    free(setValues[0]);
+    free(setValues);
+    return (err < 0) ? BAD_VALUE : NO_ERROR;
+}
+
 status_t ALSADevice::getMixerControl(const char *name, unsigned int &value, int index)
 {
     struct mixer_ctl *ctl;

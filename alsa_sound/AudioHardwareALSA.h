@@ -300,6 +300,7 @@ public:
     status_t setCompressedVolume(int vol);
     status_t setChannelMap(alsa_handle_t *handle, int maxChannels);
     void     enableSlowTalk(bool flag, uint32_t vsid = 0);
+    status_t setDMID();
     void     setVocRecMode(uint8_t mode);
     void     setVoLTEMicMute(int state);
     void     setVoLTEVolume(int vol);
