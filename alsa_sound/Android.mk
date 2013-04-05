@@ -24,6 +24,9 @@ LOCAL_CFLAGS += -DQCOM_USBAUDIO_ENABLED
 
 ifeq ($(call is-board-platform-in-list,msm8974 msm8226),true)
   LOCAL_CFLAGS += -DTARGET_B_FAMILY
+ifdef DOLBY_DAP
+  LOCAL_CFLAGS += -DDOLBY_DAP
+endif
 endif
 
 ifneq ($(ALSA_DEFAULT_SAMPLE_RATE),)

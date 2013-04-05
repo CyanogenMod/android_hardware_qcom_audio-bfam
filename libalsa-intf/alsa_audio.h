@@ -181,7 +181,7 @@ struct mixer_ctl *mixer_get_nth_control(struct mixer *mixer, unsigned n);
 int mixer_ctl_set(struct mixer_ctl *ctl, unsigned percent);
 int mixer_ctl_select(struct mixer_ctl *ctl, const char *value);
 void mixer_ctl_get(struct mixer_ctl *ctl, unsigned *value);
-void mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *count);
+int mixer_ctl_get_mulvalues(struct mixer_ctl *ctl, unsigned **value, unsigned *count);
 int mixer_ctl_set_value(struct mixer_ctl *ctl, int count, char ** argv);
 int mixer_ctl_get_elem_info(struct mixer_ctl *ctl);
 

@@ -407,6 +407,9 @@ public:
     status_t setChannelMap(alsa_handle_t *handle, int maxChannels);
     void     enableSlowTalk(bool flag, uint32_t vsid = 0);
     status_t setDMID();
+#ifdef DOLBY_DAP
+    status_t setEndpDevice(int value);
+#endif
     void     setVocRecMode(uint8_t mode);
     void     setVoLTEMicMute(int state);
     void     setVoLTEVolume(int vol);
