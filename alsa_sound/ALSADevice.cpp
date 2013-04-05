@@ -17,7 +17,7 @@
  */
 
 #define LOG_TAG "ALSADevice"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_NDDEBUG 0
 #include <utils/Log.h>
 #include <cutils/properties.h>
@@ -328,7 +328,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         (!strcmp(handle->useCase, SND_USE_CASE_VERB_CAPTURE_COMPRESSED_VOICE_DL)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_COMPRESSED_VOICE_UL_DL)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_VERB_CAPTURE_COMPRESSED_VOICE_UL_DL))) {
-        ALOGV("Tunnel mode detected...");
+        ALOGD("Tunnel mode detected...");
         //get the list of codec supported by hardware
         if (ioctl(handle->handle->fd, SNDRV_COMPRESS_GET_CAPS, &compr_cap)) {
             ALOGE("SNDRV_COMPRESS_GET_CAPS, failed Error no %d \n", errno);
@@ -337,7 +337,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         }
         if( handle->format == AUDIO_FORMAT_AAC ) {
           codec_id = get_compressed_format("AAC");
-          ALOGV("### AAC CODEC codec_id %d",codec_id);
+          ALOGD("### AAC CODEC codec_id %d",codec_id);
         }
         else if (handle->format == AUDIO_FORMAT_AMR_WB) {
           codec_id = get_compressed_format("AMR_WB");
@@ -350,17 +350,17 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
               compr_params.codec.options.generic.reserved[0] = 8; /*band mode - 23.85 kbps*/
               compr_params.codec.options.generic.reserved[1] = 0; /*dtx mode - disable*/
           }
-          ALOGV("### AMR WB CODEC codec_id %d",codec_id);
+          ALOGD("### AMR WB CODEC codec_id %d",codec_id);
         }
 #ifdef QCOM_AUDIO_FORMAT_ENABLED
         else if (handle->format == AUDIO_FORMAT_AMR_WB_PLUS) {
           codec_id = get_compressed_format("AMR_WB_PLUS");
-          ALOGV("### AMR WB+ CODEC codec_id %d",codec_id);
+          ALOGD("### AMR WB+ CODEC codec_id %d",codec_id);
         }
 #endif
         else if (handle->format == AUDIO_FORMAT_MP3) {
           codec_id = get_compressed_format("MP3");
-          ALOGV("### MP3 CODEC codec_id %d",codec_id);
+          ALOGD("### MP3 CODEC codec_id %d",codec_id);
         }
         else if (handle->format == AUDIO_FORMAT_EAC3) {
           int length;
@@ -402,7 +402,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         //find if codec_id matches with any of h/w supported codecs.
         for (int i = 0; i < compr_cap.num_codecs; i++) {
           if (compr_cap.codecs[i] == codec_id) {
-            ALOGV("### MatchedFcodec_id %u", codec_id);
+            ALOGD("### MatchedFcodec_id %u", codec_id);
             compr_params.codec.id = codec_id;
             break;
           }
@@ -443,7 +443,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
             || !strncmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED, strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED))) {
             channels = 4;
             reqBuffSize = DEFAULT_IN_BUFFER_SIZE*4;
-            ALOGV("HWParams: Use 4 channels in kernel for 5.1(%s) recording reqBuffSize:%d", handle->useCase,reqBuffSize);
+            ALOGD("HWParams: Use 4 channels in kernel for 5.1(%s) recording reqBuffSize:%d", handle->useCase,reqBuffSize);
         }
     }
 #endif
@@ -523,7 +523,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         //Do not update buffersize for 5.1 recording
         if (handle->format == AUDIO_FORMAT_AMR_WB &&
             format != SNDRV_PCM_FORMAT_SPECIAL) {
-            ALOGV("### format AMWB, set bufsize to 61");
+            ALOGD("### format AMWB, set bufsize to 61");
             handle->bufferSize = 61;
         } else {
             handle->bufferSize = handle->handle->period_size;
@@ -553,7 +553,7 @@ status_t ALSADevice::setSoftwareParams(alsa_handle_t *handle)
             || !strncmp(handle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED, strlen(SND_USE_CASE_VERB_HIFI_REC_COMPRESSED))
             || !strncmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC, strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC))
             || !strncmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED, strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED))) {
-            ALOGV("SWParams: Use 4 channels in kernel for 5.1(%s) recording ", handle->useCase);
+            ALOGD("SWParams: Use 4 channels in kernel for 5.1(%s) recording ", handle->useCase);
             channels = 4;
         }
     }
@@ -595,7 +595,7 @@ void ALSADevice::switchDevice(alsa_handle_t *handle, uint32_t devices, uint32_t 
     char *rxDevice, *txDevice, ident[70], *use_case = NULL;
     int err = 0, index, mods_size;
     int rx_dev_id, tx_dev_id;
-    ALOGV("%s: device %#x mode:%d", __FUNCTION__, devices, mode);
+    ALOGD("%s: device %#x mode:%d", __FUNCTION__, devices, mode);
 
     if ((mode == AUDIO_MODE_IN_CALL)  || (mode == AUDIO_MODE_IN_COMMUNICATION)) {
         if ((devices & AudioSystem::DEVICE_OUT_WIRED_HEADSET) ||
@@ -653,16 +653,16 @@ void ALSADevice::switchDevice(alsa_handle_t *handle, uint32_t devices, uint32_t 
             || !strncmp(handle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED, strlen(SND_USE_CASE_VERB_HIFI_REC_COMPRESSED))
             || !strncmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC, strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC))
             || !strncmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED, strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED))) {
-            ALOGV(" switchDevice , use ssr devices for channels:%d usecase:%s",handle->channels,handle->useCase);
+            ALOGD(" switchDevice , use ssr devices for channels:%d usecase:%s",handle->channels,handle->useCase);
             setFlags(SSRQMIC_FLAG);
         }
     }
 #endif
 
     rxDevice = getUCMDevice(devices & AudioSystem::DEVICE_OUT_ALL, 0, NULL);
-    ALOGV("%s: rxDevice %s devices:0x%x", __FUNCTION__, rxDevice,devices);
+    ALOGD("%s: rxDevice %s devices:0x%x", __FUNCTION__, rxDevice,devices);
     txDevice = getUCMDevice(devices & AudioSystem::DEVICE_IN_ALL, 1, rxDevice);
-    ALOGV("%s: txDevice:%s devices:0x%x", __FUNCTION__, txDevice,devices);
+    ALOGD("%s: txDevice:%s devices:0x%x", __FUNCTION__, txDevice,devices);
 
     if ((rxDevice != NULL) && (txDevice != NULL)) {
         if (((strncmp(rxDevice, mCurRxUCMDevice, MAX_STR_LEN)) ||
@@ -897,7 +897,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_LPA)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))) {
-        ALOGV("LPA/tunnel use case");
+        ALOGD("LPA/tunnel use case");
         flags |= PCM_MMAP;
         flags |= DEBUG_ON;
     } else if ((!strcmp(handle->useCase, SND_USE_CASE_VERB_HIFI)) ||
@@ -906,7 +906,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_MUSIC2)) ||
         (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_MUSIC))) {
-        ALOGV("Music case");
+        ALOGD("Music case");
         flags = PCM_OUT;
     } else {
         flags = PCM_IN;
@@ -939,7 +939,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
         return NO_INIT;
     }
     if (devName != NULL) {
-        ALOGV("flags %x, devName %s",flags,devName);
+        ALOGD("flags %x, devName %s",flags,devName);
         handle->handle = pcm_open(flags, (char*)devName);
     } else {
         ALOGE("Failed to get pcm device node");
@@ -997,7 +997,7 @@ status_t ALSADevice::startVoipCall(alsa_handle_t *handle)
     close(handle);
     flags = PCM_OUT;
     flags |= PCM_MONO;
-    ALOGV("startVoipCall  handle %p", handle);
+    ALOGD("startVoipCall  handle %p", handle);
 
     if (deviceName(handle, flags, &devName) < 0) {
          ALOGE("Failed to get pcm device node");
@@ -1236,7 +1236,7 @@ status_t ALSADevice::startSpkProtRxTx(alsa_handle_t *handle, bool IsRx)
         ALOGE("startSpkProtRxTx Invalid params dir %d",IsRx);
         return -EINVAL;
     }
-    ALOGV("startSpkProtRxTx for calib %p dir %d", handle,IsRx);
+    ALOGD("startSpkProtRxTx for calib %p dir %d", handle,IsRx);
     if (IsRx)
         flags = PCM_OUT | PCM_STEREO;
     else
@@ -1292,7 +1292,7 @@ status_t ALSADevice::startFm(alsa_handle_t *handle)
     unsigned flags = 0;
     int err = NO_ERROR;
 
-    ALOGV("startFm: handle %p", handle);
+    ALOGD("startFm: handle %p", handle);
 
     // ASoC multicomponent requires a valid path (frontend/backend) for
     // the device to be opened
@@ -1468,7 +1468,7 @@ status_t ALSADevice::close(alsa_handle_t *handle, uint32_t vsid)
             (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_FM))) {
             mIsFmEnabled = false;
         }
-        ALOGV("close rxHandle\n");
+        ALOGD("close rxHandle\n");
         err = pcm_close(h);
         if(err != NO_ERROR) {
             ALOGE("close: pcm_close failed for rxHandle with err %d", err);
@@ -1479,7 +1479,7 @@ status_t ALSADevice::close(alsa_handle_t *handle, uint32_t vsid)
     handle->handle = 0;
 
     if (h) {
-          ALOGV("close handle h %p\n", h);
+          ALOGD("close handle h %p\n", h);
         err = pcm_close(h);
         if(err != NO_ERROR) {
             ALOGE("close: pcm_close failed for handle with err %d", err);
@@ -1504,7 +1504,7 @@ status_t ALSADevice::standby(alsa_handle_t *handle)
     handle->rxHandle = 0;
     ALOGD("standby: handle %p h %p", handle, h);
     if (h) {
-        ALOGV("standby  rxHandle\n");
+        ALOGD("standby  rxHandle\n");
         err = pcm_close(h);
         if(err != NO_ERROR) {
             ALOGE("standby: pcm_close failed for rxHandle with err %d", err);
@@ -1515,7 +1515,7 @@ status_t ALSADevice::standby(alsa_handle_t *handle)
     handle->handle = 0;
 
     if (h) {
-        ALOGV("standby handle h %p\n", h);
+        ALOGD("standby handle h %p\n", h);
         err = pcm_close(h);
         if(err != NO_ERROR) {
             ALOGE("standby: pcm_close failed for handle with err %d", err);
@@ -1546,7 +1546,7 @@ status_t ALSADevice::route(alsa_handle_t *handle, uint32_t devices, int mode)
 
 int ALSADevice::getUseCaseType(const char *useCase)
 {
-    ALOGV("use case is %s\n", useCase);
+    ALOGD("use case is %s\n", useCase);
     if (!strncmp(useCase, SND_USE_CASE_VERB_HIFI,
             MAX_LEN(useCase,SND_USE_CASE_VERB_HIFI)) ||
         !strncmp(useCase, SND_USE_CASE_VERB_HIFI2,
@@ -1627,7 +1627,7 @@ int ALSADevice::getUseCaseType(const char *useCase)
             MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_VOLTE))) {
         return (USECASE_TYPE_RX | USECASE_TYPE_TX);
     } else {
-        ALOGV("unknown use case %s\n", useCase);
+        ALOGE("unknown use case %s\n", useCase);
         return 0;
     }
 }
@@ -1672,7 +1672,7 @@ void ALSADevice::disableDevice(alsa_handle_t *handle)
                 usecase_type |= getUseCaseType(mods_list[i]);
             }
         }
-        ALOGV("usecase_type is %d\n", usecase_type);
+        ALOGD("usecase_type is %d\n", usecase_type);
         if (!(usecase_type & USECASE_TYPE_TX) && (strncmp(mCurTxUCMDevice, "None", 4)))
             snd_use_case_set(handle->ucMgr, "_disdev", mCurTxUCMDevice);
         if (!(usecase_type & USECASE_TYPE_RX) && (strncmp(mCurRxUCMDevice, "None", 4))) {
@@ -1713,7 +1713,7 @@ char *ALSADevice::getUCMDeviceFromAcdbId(int acdb_id)
 char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
 {
     if (!input) {
-        ALOGV("getUCMDevice for output device: devices:%x is input device:%d",devices,input);
+        ALOGD("getUCMDevice for output device: devices:%x is input device:%d",devices,input);
         if (!(mDevSettingsFlag & TTY_OFF) &&
             (mCallMode == AUDIO_MODE_IN_CALL) &&
             ((devices & AudioSystem::DEVICE_OUT_WIRED_HEADSET)
@@ -1867,7 +1867,7 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
             ALOGD("No valid output device: %u", devices);
         }
     } else {
-        ALOGV("getUCMDevice for input device: devices:%x is input device:%d",devices,input);
+        ALOGD("getUCMDevice for input device: devices:%x is input device:%d",devices,input);
         if (!(mDevSettingsFlag & TTY_OFF) &&
             (mCallMode == AUDIO_MODE_IN_CALL) &&
             ((devices & AudioSystem::DEVICE_IN_WIRED_HEADSET)
@@ -2409,7 +2409,7 @@ status_t ALSADevice::setChannelMap(alsa_handle_t *handle, int maxChannels)
 
 void ALSADevice::setChannelAlloc(int channelAlloc)
 {
-    ALOGV("channel allocation = 0x%x", channelAlloc);
+    ALOGD("channel allocation = 0x%x", channelAlloc);
     char** setValues;
     setValues = (char**)malloc(sizeof(char*));
     if (setValues == NULL) {
@@ -2596,7 +2596,7 @@ status_t ALSADevice::setEcrxDevice(char *device)
 void ALSADevice::setInChannels(int channels)
 {
     mInChannels = channels;
-    ALOGV("mInChannels:%d", mInChannels);
+    ALOGD("mInChannels:%d", mInChannels);
 }
 
 status_t ALSADevice::exitReadFromProxy()
@@ -2761,7 +2761,7 @@ status_t ALSADevice::startProxy() {
            break;
        }
    }
-   ALOGV("startProxy - Proxy started");
+   ALOGD("startProxy - Proxy started");
    capture_handle->start = 1;
    capture_handle->sync_ptr->flags = SNDRV_PCM_SYNC_PTR_APPL |
                SNDRV_PCM_SYNC_PTR_AVAIL_MIN;
@@ -2777,7 +2777,7 @@ status_t ALSADevice::openProxyDevice()
 
     snprintf(deviceName, sizeof(deviceName), "hw:%u,8", mSndCardInfo.card);
 
-    ALOGV("openProxyDevice");
+    ALOGD("openProxyDevice");
     mProxyParams.mProxyPcmHandle = pcm_open(flags, deviceName);
     if (!pcm_ready(mProxyParams.mProxyPcmHandle)) {
         ALOGE("Opening proxy device failed");
@@ -2926,7 +2926,7 @@ bool ALSADevice::resumeProxy() {
    if((mProxyParams.mProxyState == proxy_params::EProxyOpened ||
            mProxyParams.mProxyState == proxy_params::EProxySuspended) &&
            capture_handle != NULL) {
-       ALOGV("pcm_prepare from Resume");
+       ALOGD("pcm_prepare from Resume");
        capture_handle->start = 0;
        err = pcm_prepare(capture_handle);
        if(err != OK) {

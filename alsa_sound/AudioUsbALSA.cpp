@@ -28,7 +28,7 @@ OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #define LOG_TAG "AudioUsbALSA"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_NDDEBUG 0
 #include <utils/Log.h>
 #include <utils/String8.h>
@@ -244,7 +244,7 @@ status_t AudioUsbALSA::getCap(char * type, int &channels, int &sampleRate)
     }
 
     ratesSupported[0] = atoi(nextSRString);
-    ALOGV("ratesSupported[0] for playback: %d", ratesSupported[0]);
+    ALOGD("ratesSupported[0] for playback: %d", ratesSupported[0]);
     for (i = 1; i<size; i++) {
         nextSRString = strtok_r(NULL, " ,.-", &temp_ptr);
         ratesSupported[i] = atoi(nextSRString);
@@ -366,7 +366,7 @@ status_t AudioUsbALSA::setHardwareParams(pcm *txHandle, uint32_t sampleRate,
                    SNDRV_PCM_FORMAT_S16_LE);
     param_set_mask(params, SNDRV_PCM_HW_PARAM_SUBFORMAT,
                    SNDRV_PCM_SUBFORMAT_STD);
-    ALOGV("Setting period size:%d samplerate:%d, channels: %d",periodBytes,sampleRate, channels);
+    ALOGD("Setting period size:%d samplerate:%d, channels: %d",periodBytes,sampleRate, channels);
     param_set_min(params, SNDRV_PCM_HW_PARAM_PERIOD_BYTES, periodBytes);
     if(usbAudioPCMModes == PROXY_RECORDING)
         param_set_int(params, SNDRV_PCM_HW_PARAM_PERIODS, AFE_PROXY_PERIOD_COUNT);
@@ -488,7 +488,7 @@ void AudioUsbALSA::RecordingThreadEntry() {
     }
 
     snprintf(usbDeviceName, sizeof(usbDeviceName), "hw:%u,0", mUsbSoundCard);
-    ALOGV("Configuring USB capture device %s", usbDeviceName);
+    ALOGD("Configuring USB capture device %s", usbDeviceName);
 
     musbRecordingHandle = configureDevice(PCM_IN|channelFlag|PCM_MMAP, usbDeviceName,
                                          msampleRateCapture, mchannelsCapture,2048,USB_RECORDING);
@@ -503,7 +503,7 @@ void AudioUsbALSA::RecordingThreadEntry() {
     pfdUsbRecording[0].events = POLLIN;
 
     snprintf(proxyDeviceName, sizeof(proxyDeviceName), "hw:%u,7", mProxySoundCard);
-    ALOGV("Configuring Proxy playback device %s", proxyDeviceName);
+    ALOGD("Configuring Proxy playback device %s", proxyDeviceName);
 
     mproxyRecordingHandle = configureDevice(PCM_OUT|channelFlag|PCM_MMAP, proxyDeviceName,
                                             msampleRateCapture, mchannelsCapture,2048,PROXY_PLAYBACK);
@@ -946,7 +946,7 @@ void AudioUsbALSA::PlaybackThreadEntry() {
         }
 
         snprintf(proxyDeviceName, sizeof(proxyDeviceName), "hw:%u,8", mProxySoundCard);
-        ALOGV("Configuring Proxy capture device %s", proxyDeviceName);
+        ALOGD("Configuring Proxy capture device %s", proxyDeviceName);
 
         mproxyPlaybackHandle = configureDevice(PCM_IN|PCM_STEREO|PCM_MMAP, proxyDeviceName,
                                msampleRatePlayback, mchannelsPlayback, PROXY_PERIOD_SIZE, PROXY_RECORDING);
@@ -1221,7 +1221,7 @@ void AudioUsbALSA::startRecording()
 {
     //create Thread
     mkillRecordingThread = false;
-    ALOGV("Creating USB recording Thread");
+    ALOGD("Creating USB recording Thread");
     pthread_create(&mRecordingUsb, NULL, RecordingThreadWrapper, this);
 }
 }
