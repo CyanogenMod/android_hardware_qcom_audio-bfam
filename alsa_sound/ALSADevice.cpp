@@ -286,7 +286,7 @@ status_t ALSADevice::setHDMIChannelCount()
         }
     }
 #endif
-
+    mDevChannelCap = channel_count;
     switch (channel_count) {
     case 8: channel_cnt_str = "Eight"; break;
     case 7: channel_cnt_str = "Seven"; break;
@@ -315,6 +315,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
     struct snd_compr_caps compr_cap;
     struct snd_compr_params compr_params;
     uint32_t codec_id = 0;
+    char *ddpEndpParams = NULL;
 
     ALOGD("handle->format: 0x%x", handle->format);
     if ((!strcmp(handle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
@@ -359,6 +360,40 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
           codec_id = get_compressed_format("MP3");
           ALOGV("### MP3 CODEC codec_id %d",codec_id);
         }
+        else if (handle->format == AUDIO_FORMAT_EAC3) {
+          int length;
+          codec_id = get_compressed_format("EAC3");
+          ALOGV("### EAC3 CODEC codec_id %d",codec_id);
+          ddpEndpParams = (char *) malloc (2*DDP_ENDP_NUM_PARAMS*sizeof(int));
+          if(ddpEndpParams != NULL) {
+              setDDPEndpParams(handle, handle->devices, mDevChannelCap,
+                                ddpEndpParams, &length, false);
+              compr_params.codec.options.ddp.params_length = length;
+              compr_params.codec.options.ddp.params = (__u8 *) ddpEndpParams;
+          } else {
+              compr_params.codec.options.ddp.params_length = 0;
+          }
+#ifndef DOLBY_DAP
+          setDMID();
+#endif
+        }
+        else if (handle->format == AUDIO_FORMAT_AC3) {
+          int length;
+          codec_id = get_compressed_format("AC3");
+          ALOGV("### AC3 CODEC codec_id %d",codec_id);
+          ddpEndpParams = (char *) malloc (2*DDP_ENDP_NUM_PARAMS*sizeof(int));
+          if(ddpEndpParams != NULL) {
+              setDDPEndpParams(handle, handle->devices, mDevChannelCap,
+                                ddpEndpParams, &length, false);
+              compr_params.codec.options.ddp.params_length = length;
+              compr_params.codec.options.ddp.params = (__u8 *) ddpEndpParams;
+          } else {
+              compr_params.codec.options.ddp.params_length = 0;
+          }
+#ifndef DOLBY_DAP
+          setDMID();
+#endif
+        }
         else {
             return UNKNOWN_ERROR;
         }
@@ -372,14 +407,20 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         }
         if (!compr_params.codec.id) {
           ALOGE("### Codec %u not supported",codec_id);
+          if (ddpEndpParams)
+              free(ddpEndpParams);
           return UNKNOWN_ERROR;
         }
 
         if (ioctl(handle->handle->fd, SNDRV_COMPRESS_SET_PARAMS, &compr_params)) {
             ALOGE("SNDRV_COMPRESS_SET_PARAMS,failed Error no %d \n", errno);
             err = -errno;
+            if (ddpEndpParams)
+                free(ddpEndpParams);
             return err;
         }
+        if (ddpEndpParams)
+            free(ddpEndpParams);
     }
 
     params = (snd_pcm_hw_params*) calloc(1, sizeof(struct snd_pcm_hw_params));
@@ -832,6 +873,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
     unsigned flags = 0;
     int err = NO_ERROR;
 
+    mDevChannelCap = 2;
     if(mCurDevice & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
         err = setHDMIChannelCount();
         if(err != OK) {
@@ -933,8 +975,10 @@ status_t ALSADevice::open(alsa_handle_t *handle)
     }
 
 #ifdef TARGET_B_FAMILY
-    if(handle->channels > 2)
-        setChannelMap(handle, MAX_HDMI_CHANNEL_CNT);
+    if(!((!strcmp(handle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
+        (!strcmp(handle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))))
+        if(handle->channels > 2)
+            setChannelMap(handle, MAX_HDMI_CHANNEL_CNT);
 #endif
 
     return NO_ERROR;
@@ -2902,6 +2946,88 @@ status_t ALSADevice::getEDIDData(char *hdmiEDIDData)
     if(EDIDData)
         free(EDIDData);
     return err;
+}
+
+status_t ALSADevice::updateDDPEndpTable(int device, int dev_ch_cap,
+                                        int param_id, int param_val)
+{
+    int idx = 0;
+    int param_idx = 0;
+    ALOGV("%s: dev 0x%x dev_ch_cap %d param_id 0x%x param_val %d", __func__, device, dev_ch_cap , param_id, param_val);
+    for(idx=0; idx<DDP_ENDP_NUM_DEVICES; idx++) {
+        if(mDDPEndpParams[idx].device == device) {
+            if(mDDPEndpParams[idx].dev_ch_cap == dev_ch_cap) {
+                break;
+            }
+        }
+    }
+
+    if(idx>=DDP_ENDP_NUM_DEVICES) {
+        ALOGE("%s: device not available in DDP endp config table", __func__);
+        return BAD_VALUE;
+    }
+
+    for(param_idx=0; param_idx<DDP_ENDP_NUM_PARAMS; param_idx++) {
+        if (mDDPEndpParamsId[param_idx] == param_id) {
+            break;
+        }
+    }
+
+    if(param_idx>=DDP_ENDP_NUM_PARAMS) {
+        ALOGE("param not available in DDP endp config table");
+        return BAD_VALUE;
+    }
+    ALOGV("mDDPEndpParams[%d].param_val[%d] = %d", idx, param_idx, param_val);
+    mDDPEndpParams[idx].param_val[param_idx] = param_val;
+    return NO_ERROR;
+}
+
+status_t ALSADevice::setDDPEndpParams(alsa_handle_t *handle,
+                                      int device, int dev_ch_cap,
+                                      char *ddpEndpParams, int *length,
+                                      bool send_params)
+{
+    int idx, j=0, *ddpEndpParams_data = (int *)ddpEndpParams;
+    status_t err;
+    *length = 0;
+    for(idx=0; idx<DDP_ENDP_NUM_DEVICES; idx++) {
+        if(mDDPEndpParams[idx].device & device) {
+            if(mDDPEndpParams[idx].dev_ch_cap == dev_ch_cap) {
+                break;
+            }
+        }
+    }
+    if(idx>=DDP_ENDP_NUM_DEVICES) {
+        ALOGE("device not available in DDP endp config table");
+        return BAD_VALUE;
+    }
+
+    for(int i=0; i<DDP_ENDP_NUM_PARAMS; i++) {
+        if(mDDPEndpParams[idx].is_param_valid[i]) {
+            ddpEndpParams_data[j++] = mDDPEndpParamsId[i];
+            ddpEndpParams_data[j++] = mDDPEndpParams[idx].param_val[i];
+            *length += 2;
+        }
+    }
+    if(send_params && (*length)) {
+        struct snd_compr_params compr_params;
+        uint32_t codec_id = 0;
+        if(handle->format == AUDIO_FORMAT_EAC3)
+            codec_id = get_compressed_format("EAC3");
+        else if (handle->format == AUDIO_FORMAT_AC3)
+            codec_id = get_compressed_format("AC3");
+        else
+            return BAD_VALUE;
+        compr_params.codec.id = codec_id;
+        compr_params.codec.options.ddp.params_length = (*length);
+        compr_params.codec.options.ddp.params = (__u8 *) ddpEndpParams;
+        if (ioctl(handle->handle->fd, SNDRV_COMPRESS_SET_PARAMS, &compr_params)) {
+            ALOGE("SNDRV_COMPRESS_SET_PARAMS,failed Error no %d \n", errno);
+            err = -errno;
+            return err;
+        }
+    }
+    return NO_ERROR;
 }
 
 #ifdef SEPERATED_AUDIO_INPUT

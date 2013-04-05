@@ -206,6 +206,112 @@ static int USBRECBIT_FM = (1 << 3);
 
 #define SOUND_CARD_SLEEP_RETRY 5  /*  Will check 5 times before continuing */
 #define SOUND_CARD_SLEEP_WAIT 100 /* 100 ms */
+#define PARAM_ID_MAX_OUTPUT_CHANNELS    0x00010DE2
+#define PARAM_ID_CTL_RUNNING_MODE       0x0
+#define PARAM_ID_CTL_ERROR_CONCEAL      0x00010DE3
+#define PARAM_ID_CTL_ERROR_MAX_RPTS     0x00010DE4
+#define PARAM_ID_CNV_ERROR_CONCEAL      0x00010DE5
+#define PARAM_ID_CTL_SUBSTREAM_SELECT   0x00010DE6
+#define PARAM_ID_CTL_INPUT_MODE         0x0
+#define PARAM_ID_OUT_CTL_OUTMODE        0x00010DE0
+#define PARAM_ID_OUT_CTL_OUTLFE_ON      0x00010DE1
+#define PARAM_ID_OUT_CTL_COMPMODE       0x00010D74
+#define PARAM_ID_OUT_CTL_STEREO_MODE    0x00010D76
+#define PARAM_ID_OUT_CTL_DUAL_MODE      0x00010D75
+#define PARAM_ID_OUT_CTL_DRCSCALE_HIGH  0x00010D7A
+#define PARAM_ID_OUT_CTL_DRCSCALE_LOW   0x00010D79
+#define PARAM_ID_OUT_CTL_OUT_PCMSCALE   0x00010D78
+#define PARAM_ID_OUT_CTL_MDCT_BANDLIMIT 0x00010DE7
+#define PARAM_ID_OUT_CTL_DRC_SUPPRESS   0x00010DE8
+
+/* DS1-DDP Endp Params */
+#define DDP_ENDP_NUM_PARAMS 17
+#define DDP_ENDP_NUM_DEVICES 22
+static int mDDPEndpParamsId[DDP_ENDP_NUM_PARAMS] = {
+    PARAM_ID_MAX_OUTPUT_CHANNELS, PARAM_ID_CTL_RUNNING_MODE,
+    PARAM_ID_CTL_ERROR_CONCEAL, PARAM_ID_CTL_ERROR_MAX_RPTS,
+    PARAM_ID_CNV_ERROR_CONCEAL, PARAM_ID_CTL_SUBSTREAM_SELECT,
+    PARAM_ID_CTL_INPUT_MODE, PARAM_ID_OUT_CTL_OUTMODE,
+    PARAM_ID_OUT_CTL_OUTLFE_ON, PARAM_ID_OUT_CTL_COMPMODE,
+    PARAM_ID_OUT_CTL_STEREO_MODE, PARAM_ID_OUT_CTL_DUAL_MODE,
+    PARAM_ID_OUT_CTL_DRCSCALE_HIGH, PARAM_ID_OUT_CTL_DRCSCALE_LOW,
+    PARAM_ID_OUT_CTL_OUT_PCMSCALE, PARAM_ID_OUT_CTL_MDCT_BANDLIMIT,
+    PARAM_ID_OUT_CTL_DRC_SUPPRESS
+};
+/*the table should be accessed in ALSADevice.cpp only*/
+static struct mDDPEndpParams {
+    int  device;
+    int  dev_ch_cap;
+    int  param_val[DDP_ENDP_NUM_PARAMS];
+    bool is_param_valid[DDP_ENDP_NUM_PARAMS];
+} mDDPEndpParams[DDP_ENDP_NUM_DEVICES] = {
+          {AudioSystem::DEVICE_OUT_EARPIECE, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0 } },
+          {AudioSystem::DEVICE_OUT_SPEAKER, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_WIRED_HEADSET, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_WIRED_HEADPHONE, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_SCO, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_HEADSET, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_SCO_CARKIT, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_AUX_DIGITAL, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 2, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_AUX_DIGITAL, 6,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 2, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_AUX_DIGITAL, 8,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 2, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_USB_ACCESSORY, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_USB_DEVICE, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_FM, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_FM_TX, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_ANC_HEADSET, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_ANC_HEADPHONE, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+          {AudioSystem::DEVICE_OUT_PROXY, 2,
+              {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
+              {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+                       };
 
 #define VOICE_SESSION_VSID   0x01
 #define VOLTE_SESSION_VSID   0x02
@@ -312,6 +418,10 @@ public:
     void     disableDevice(alsa_handle_t *handle);
     char    *getUCMDeviceFromAcdbId(int acdb_id);
     status_t getEDIDData(char *hdmiEDIDData);
+    status_t updateDDPEndpTable(int device, int dev_ch_cap,
+                                int param_id, int param_val);
+    status_t setDDPEndpParams(alsa_handle_t *handle, int device, int dev_ch_cap,
+                               char *ddpEndpParams, int *length, bool send_params);
 #ifdef SEPERATED_AUDIO_INPUT
     void     setInput(int);
 #endif
@@ -370,6 +480,7 @@ private:
     int mCallMode;
     struct mixer*  mMixer;
     int mInChannels;
+    int mDevChannelCap;
     bool mIsSglte;
     bool mIsFmEnabled;
 #ifdef SEPERATED_AUDIO_INPUT
@@ -897,6 +1008,8 @@ private:
     void         clearExtOutActiveUseCases_l(uint32_t activeUsecase);
     uint32_t     useCaseStringToEnum(const char *usecase);
     void         switchExtOut(int device);
+    status_t     setDDPEndpParams(int device);
+    void         parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParameter *param);
 protected:
     virtual status_t    dump(int fd, const Vector<String16>& args);
     virtual uint32_t    getVoipMode(int format);
