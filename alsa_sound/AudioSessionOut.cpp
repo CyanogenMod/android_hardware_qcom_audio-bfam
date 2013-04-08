@@ -728,7 +728,24 @@ status_t AudioSessionOutALSA::standby()
     // flushed.
     status_t err = NO_ERROR;
     flush();
+
+#ifdef QCOM_USBAUDIO_ENABLED
+    if (mParent->musbPlaybackState) {
+        if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER)) ||
+            (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_LPA))) {
+            ALOGV("Deregistering LPA bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_LPA;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL;
+        }
+        mParent->closeUsbPlaybackIfNothingActive();
+    }
+#endif
     mAlsaHandle->module->standby(mAlsaHandle);
+
+
     if (mParent->mRouteAudioToExtOut) {
          ALOGD("Standby - stopPlaybackOnExtOut_l - mUseCase = %d",mUseCase);
          err = mParent->stopPlaybackOnExtOut_l(mUseCase);
@@ -1076,5 +1093,4 @@ status_t AudioSessionOutALSA::drainAndPostEOS_l()
     }
     return OK;
 }
-
 }       // namespace android_audio_legacy

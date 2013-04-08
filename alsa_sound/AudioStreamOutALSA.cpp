@@ -207,7 +207,16 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
                 } else {
                     mParent->startUsbPlaybackIfNotStarted();
                     ALOGV("enabling music, musbPlaybackState: %d ", mParent->musbPlaybackState);
-                    mParent->musbPlaybackState |= USBPLAYBACKBIT_MUSIC;
+                    if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI)) ||
+                        (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC))) {
+                        mParent->musbPlaybackState |= USBPLAYBACKBIT_MUSIC;
+                    } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI2)) ||
+                             (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC2)))  {
+                        mParent->musbPlaybackState |= USBPLAYBACKBIT_MULTICHANNEL;
+                    } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC)) ||
+                             (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC))) {
+                        mParent->musbPlaybackState |= USBPLAYBACKBIT_LOWLATENCY;
+                    }
                 }
             }
 #endif
@@ -241,7 +250,16 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
             mParent->musbPlaybackState |= USBPLAYBACKBIT_VOIPCALL;
         }else{
             ALOGV("enabling music, musbPlaybackState: %d ", mParent->musbPlaybackState);
-            mParent->musbPlaybackState |= USBPLAYBACKBIT_MUSIC;
+            if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI)) ||
+                (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC))) {
+                mParent->musbPlaybackState |= USBPLAYBACKBIT_MUSIC;
+            } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI2)) ||
+                      (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC2)))  {
+                mParent->musbPlaybackState |= USBPLAYBACKBIT_MULTICHANNEL;
+            } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC)) ||
+                             (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC))) {
+                mParent->musbPlaybackState |= USBPLAYBACKBIT_LOWLATENCY;
+            }
         }
         mParent->mLock.unlock();
     }
@@ -350,10 +368,18 @@ status_t AudioStreamOutALSA::close()
          mParent->mVoipMicMute = 0;
     }
 #ifdef QCOM_USBAUDIO_ENABLED
-      else {
-        mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MUSIC;
+    else {
+        if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI)) ||
+            (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC))) {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MUSIC;
+        } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI2)) ||
+            (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC2)))  {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MULTICHANNEL;
+        } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC)) ||
+            (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC))) {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_LOWLATENCY;
+        }
     }
-
     mParent->closeUsbPlaybackIfNothingActive();
 #endif
 
@@ -384,10 +410,18 @@ status_t AudioStreamOutALSA::standby()
 #ifdef QCOM_USBAUDIO_ENABLED
      if (mParent->musbPlaybackState) {
         ALOGD("Deregistering MUSIC bit, musbPlaybackState: %d", mParent->musbPlaybackState);
-        mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MUSIC;
-    }
+        if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI)) ||
+            (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC))) {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MUSIC;
+        } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI2)) ||
+            (!strcmp(mHandle->useCase,SND_USE_CASE_MOD_PLAY_MUSIC2)))  {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_MULTICHANNEL;
+        } else if ((!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC)) ||
+            (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC))) {
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_LOWLATENCY;
+        }
+     }
 #endif
-
     mHandle->module->standby(mHandle);
     if (mParent->mRouteAudioToExtOut) {
         status_t err = mParent->stopPlaybackOnExtOut_l(mUseCase);
@@ -396,10 +430,10 @@ status_t AudioStreamOutALSA::standby()
         }
     }
 
+
 #ifdef QCOM_USBAUDIO_ENABLED
     mParent->closeUsbPlaybackIfNothingActive();
 #endif
-
     mFrameCount = 0;
 
     return NO_ERROR;
