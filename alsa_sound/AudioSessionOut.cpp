@@ -29,7 +29,7 @@
 #include <math.h>
 
 #define LOG_TAG "AudioSessionOutALSA"
-#define LOG_NDEBUG 0
+//#define LOG_NDEBUG 0
 #define LOG_NDDEBUG 0
 #include <utils/Log.h>
 #include <utils/String8.h>
@@ -192,7 +192,7 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
     mStreamVol = lrint((volume * 0x2000)+0.5);
 #endif
 
-    ALOGV("Setting stream volume to %d (available range is 0 to 0x2000)\n", mStreamVol);
+    ALOGD("Setting stream volume to %d (available range is 0 to 0x2000)\n", mStreamVol);
     if(mAlsaHandle) {
         if(!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER) ||
            !strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_LPA)) {
@@ -252,7 +252,7 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
     it--;
 
     mAlsaHandle = &(*it);
-    ALOGV("mAlsaHandle %p, mAlsaHandle->useCase %s",mAlsaHandle, mAlsaHandle->useCase);
+    ALOGD("mAlsaHandle %p, mAlsaHandle->useCase %s",mAlsaHandle, mAlsaHandle->useCase);
 
     //3.) mmap the buffers for playback
     status_t err = mmap_buffer(mAlsaHandle->handle);
@@ -482,7 +482,7 @@ void  AudioSessionOutALSA::eventThreadEntry() {
         //Pollin event on Driver's timer fd
         if (pfd[0].revents & POLLIN && !mKillEventThread) {
             struct snd_timer_tread rbuf[4];
-            ALOGV("mAlsaHandle->handle = %p", mAlsaHandle->handle);
+            ALOGD("mAlsaHandle->handle = %p", mAlsaHandle->handle);
             if( !mAlsaHandle->handle ) {
                 ALOGD(" mAlsaHandle->handle is NULL, breaking from while loop in eventthread");
                 pfd[0].revents = 0;
@@ -543,7 +543,7 @@ void AudioSessionOutALSA::createEventThread() {
 status_t AudioSessionOutALSA::start()
 {
     Mutex::Autolock autoLock(mLock);
-    ALOGV("AudioSessionOutALSA start()");
+    ALOGD("AudioSessionOutALSA start()");
     //we should not reset EOS here, since EOS could have been
     //marked in write, the only place to clear EOS should
     //be flush
@@ -551,7 +551,7 @@ status_t AudioSessionOutALSA::start()
     //mReachedEOS = false;
     //mSkipEOS = false;
     if (mPaused) {
-        ALOGV("AudioSessionOutALSA ::start mPaused true");
+        ALOGD("AudioSessionOutALSA ::start mPaused true");
         status_t err = NO_ERROR;
         if (mSeeking) {
             ALOGV("AudioSessionOutALSA ::start before drain");
@@ -575,7 +575,7 @@ status_t AudioSessionOutALSA::start()
         }
         mAlsaHandle->handle->start = 1;
     }
-    ALOGV("AudioSessionOutALSA ::start done");
+    ALOGD("AudioSessionOutALSA ::start done");
     return NO_ERROR;
 }
 
@@ -646,7 +646,7 @@ status_t AudioSessionOutALSA::drain()
 status_t AudioSessionOutALSA::flush()
 {
     Mutex::Autolock autoLock(mLock);
-    ALOGV("AudioSessionOutALSA flush");
+    ALOGD("AudioSessionOutALSA flush");
     int err;
     {
         // 1.) Clear the Empty and Filled buffer queue
@@ -694,7 +694,7 @@ status_t AudioSessionOutALSA::flush()
     ALOGV("signalling from flush mSkipWrite %d", mSkipWrite);
     mWriteCv.signal();
 
-    ALOGV("AudioSessionOutALSA::flush completed");
+    ALOGD("AudioSessionOutALSA::flush completed");
     return NO_ERROR;
 }
 
@@ -703,7 +703,7 @@ status_t AudioSessionOutALSA::flush()
 status_t AudioSessionOutALSA::stop()
 {
     Mutex::Autolock autoLock(mLock);
-    ALOGV("AudioSessionOutALSA- stop");
+    ALOGD("AudioSessionOutALSA- stop");
     // close all the existing PCM devices
     mSkipWrite = true;
     mWriteCv.signal();
@@ -812,7 +812,7 @@ status_t AudioSessionOutALSA::isBufferAvailable(int *isAvail) {
     // in deadlock.
     ALOGV("acquiring mDecoderLock in isBufferAvailable()");
     Mutex::Autolock autoDecoderLock(mDecoderLock);
-    ALOGV("isBufferAvailable Empty Queue size() = %d, Filled Queue size() = %d ",
+    ALOGD("isBufferAvailable Empty Queue size() = %d, Filled Queue size() = %d ",
           mEmptyQueue.size(),mFilledQueue.size());
     *isAvail = false;
 
@@ -827,7 +827,7 @@ status_t AudioSessionOutALSA::isBufferAvailable(int *isAvail) {
     }
     // 1.) Wait till a empty buffer is available in the Empty buffer queue
     while (mEmptyQueue.empty()) {
-        ALOGV("Write: waiting on mWriteCv");
+        ALOGD("Write: waiting on mWriteCv");
         mWriteCv.wait(mLock);
         if (mSkipWrite) {
             ALOGV("Write: Flushing the previous write buffer");
@@ -900,7 +900,7 @@ status_t AudioSessionOutALSA::openDevice(char *useCase, bool bIsUseCase, int dev
 status_t AudioSessionOutALSA::closeDevice(alsa_handle_t *pHandle)
 {
     status_t status = NO_ERROR;
-    ALOGV("closeDevice: useCase %s", pHandle->useCase);
+    ALOGD("closeDevice: useCase %s", pHandle->useCase);
     //TODO: remove from mDeviceList
     if(pHandle) {
         status = mAlsaDevice->close(pHandle);
@@ -919,7 +919,7 @@ status_t AudioSessionOutALSA::setParameters(const String8& keyValuePairs)
     if (param.getInt(key, device) == NO_ERROR) {
         // Ignore routing if device is 0.
         if(device) {
-            ALOGV("setParameters(): keyRouting with device %#x", device);
+            ALOGD("setParameters(): keyRouting with device %#x", device);
             if (mParent->isExtOutDevice(device)) {
                 mParent->mRouteAudioToExtOut = true;
                 ALOGD("setParameters(): device %#x", device);
