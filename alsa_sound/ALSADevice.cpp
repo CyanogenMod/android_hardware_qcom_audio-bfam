@@ -267,7 +267,8 @@ status_t ALSADevice::setHDMIChannelCount()
     if(!getEDIDData(hdmiEDIDData)) {
         if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
             for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
-                if (info.AudioBlocksArray[i].nChannels > channel_count &&
+                if (info.AudioBlocksArray[i].nFormatId == LPCM &&
+                      info.AudioBlocksArray[i].nChannels > channel_count &&
                       info.AudioBlocksArray[i].nChannels <= MAX_HDMI_CHANNEL_CNT) {
                     channel_count = info.AudioBlocksArray[i].nChannels;
                 }
@@ -279,7 +280,8 @@ status_t ALSADevice::setHDMIChannelCount()
 #else
     if (AudioUtil::getHDMIAudioSinkCaps(&info)) {
         for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
-            if (info.AudioBlocksArray[i].nChannels > channel_count &&
+            if (info.AudioBlocksArray[i].nFormatId == LPCM &&
+                  info.AudioBlocksArray[i].nChannels > channel_count &&
                   info.AudioBlocksArray[i].nChannels <= MAX_HDMI_CHANNEL_CNT) {
                 channel_count = info.AudioBlocksArray[i].nChannels;
             }
