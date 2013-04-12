@@ -171,7 +171,7 @@ void AudioSpeakerProtection::initialize(void *handle)
     return;
 #endif
     /*Load thermal daemon library*/
-    mThermalHandle = ::dlopen("/system/lib/libthermalclient.so", RTLD_NOW);
+    mThermalHandle = ::dlopen("/vendor/lib/libthermalclient.so", RTLD_NOW);
     if (!mThermalHandle) {
         ALOGE("spkr_prot DLOPEN for thermal client failed");
     } else {

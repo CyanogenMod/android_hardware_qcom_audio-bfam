@@ -149,7 +149,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
     }
 
 #ifdef QCOM_ACDB_ENABLED
-    mAcdbHandle = ::dlopen("/system/lib/libacdbloader.so", RTLD_NOW);
+    mAcdbHandle = ::dlopen("/vendor/lib/libacdbloader.so", RTLD_NOW);
     if (mAcdbHandle == NULL) {
         ALOGE("AudioHardware: DLOPEN not successful for ACDBLOADER");
     } else {
@@ -227,7 +227,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
 
 #ifdef QCOM_CSDCLIENT_ENABLED
     if (mFusion3Platform) {
-        mCsdHandle = ::dlopen("/system/lib/libcsd-client.so", RTLD_NOW);
+        mCsdHandle = ::dlopen("/vendor/lib/libcsd-client.so", RTLD_NOW);
         if (mCsdHandle == NULL) {
             ALOGE("AudioHardware: DLOPEN not successful for CSD CLIENT");
         } else {
