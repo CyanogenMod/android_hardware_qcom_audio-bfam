@@ -163,8 +163,7 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
                (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP))) {
 #ifdef QCOM_USBAUDIO_ENABLED
                 if((mDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)||
-                      (mDevices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)||
-                      (mDevices & AudioSystem::DEVICE_OUT_PROXY)) {
+                      (mDevices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)) {
                     mHandle->module->route(mHandle, mDevices , mParent->mode());
                 }else
 #endif
@@ -173,12 +172,11 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
                 }
 #ifdef QCOM_USBAUDIO_ENABLED
             } else if((mDevices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)||
-                      (mDevices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)||
-                      (mDevices & AudioSystem::DEVICE_OUT_PROXY)) {
+                      (mDevices & AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET)) {
                 mHandle->module->route(mHandle, mDevices , mParent->mode());
 #endif
             } else {
-                  mHandle->module->route(mHandle, mDevices , mParent->mode());
+                mHandle->module->route(mHandle, mDevices , mParent->mode());
             }
             if (!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI) ||
                 !strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI2) ||
@@ -248,6 +246,7 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
         mParent->mLock.unlock();
     }
 #endif
+
 
     period_size = mHandle->periodSize;
     do {

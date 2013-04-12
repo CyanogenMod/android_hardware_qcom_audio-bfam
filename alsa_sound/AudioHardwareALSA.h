@@ -445,6 +445,12 @@ public:
 
     int mADSPState;
     int mCurDevice;
+public:
+#ifdef QCOM_WFD_ENABLED
+    status_t setProxyPortChannelCount(int channels);
+    int getWFDChannelCaps();
+    void setWFDChannelCaps(int);
+#endif
 protected:
     friend class AudioHardwareALSA;
     friend class AudioSpeakerProtection;
@@ -496,6 +502,9 @@ private:
     bool mIsFmEnabled;
 #ifdef SEPERATED_AUDIO_INPUT
     int mInput_source;
+#endif
+#ifdef QCOM_WFD_ENABLED
+    int mWFDChannelCap;
 #endif
 
     struct snd_ctl_card_info mSndCardInfo;
@@ -1027,6 +1036,10 @@ protected:
     status_t            doRouting(int device);
 #ifdef QCOM_FM_ENABLED
     void                handleFm(int device);
+#endif
+#ifdef QCOM_WFD_ENABLED
+    // Copies mWFDChannelCap values to the arg
+    void getWFDAudioSinkCaps(int32_t &, int32_t &);
 #endif
 #ifdef QCOM_USBAUDIO_ENABLED
     void                closeUSBPlayback();

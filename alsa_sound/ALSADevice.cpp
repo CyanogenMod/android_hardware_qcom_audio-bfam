@@ -51,6 +51,10 @@ static int (*acdb_loader_get_ecrx_device)(int acdb_id);
 #define MAX_HDMI_CHANNEL_CNT 8
 
 #define AFE_PROXY_PERIOD_SIZE 3072
+// Increasing the ring buffer size in driver for 6 channel usb
+// will cause increase in period count. Set the existing value
+// returned from the driver.
+#define AFE_PROXY_PERIOD_COUNT 32
 #define KILL_A2DP_THREAD 1
 #define SIGNAL_A2DP_THREAD 2
 #define ADSP_UP_CHK_TRIES 5
@@ -75,6 +79,9 @@ ALSADevice::ALSADevice() {
     mDevSettingsFlag = TTY_OFF | DMIC_FLAG;
 #else
     mDevSettingsFlag = TTY_OFF;
+#endif
+#ifdef QCOM_WFD_ENABLED
+    mWFDChannelCap = 2;
 #endif
     mADSPState = ADSP_UP;
     mBtscoSamplerate = 8000;
@@ -661,6 +668,24 @@ void ALSADevice::switchDevice(alsa_handle_t *handle, uint32_t devices, uint32_t 
     }
 #endif
 
+#ifdef QCOM_WFD_ENABLED
+    if(devices & AudioSystem::DEVICE_OUT_PROXY) {
+         ALOGD("Setting Sink capability for WFD in switchDevice");
+         int32_t sampleRate = 0 , channelCount = 0;
+         //We need to know if sink supports 6 or 8 channel.
+         //For stereo we dont need to set channel count as
+         //we get stereo data from proxy by default.
+         channelCount = getWFDChannelCaps();
+         setProxyPortChannelCount(channelCount);
+    } else if((devices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET) ||
+              (devices & AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET) ||
+              (devices & AudioSystem::DEVICE_OUT_ALL_USB) ||
+              (devices & AudioSystem::DEVICE_OUT_ALL_A2DP)){
+                  // USB and A2DP use 2 channels
+                  setProxyPortChannelCount(2);
+    }
+#endif
+
     rxDevice = getUCMDevice(devices & AudioSystem::DEVICE_OUT_ALL, 0, NULL);
     ALOGD("%s: rxDevice %s devices:0x%x", __FUNCTION__, rxDevice,devices);
     txDevice = getUCMDevice(devices & AudioSystem::DEVICE_IN_ALL, 1, rxDevice);
@@ -906,6 +931,7 @@ status_t ALSADevice::open(alsa_handle_t *handle)
           return NO_INIT;
        }
     }
+
     close(handle);
 
     ALOGD("open: handle %p, format 0x%x", handle, handle->format);
@@ -2830,6 +2856,7 @@ status_t ALSADevice::openProxyDevice()
             SNDRV_PCM_SUBFORMAT_STD);
     param_set_min(params, SNDRV_PCM_HW_PARAM_PERIOD_BYTES,
             mProxyParams.mProxyPcmHandle->period_size);
+    param_set_int(params, SNDRV_PCM_HW_PARAM_PERIODS, AFE_PROXY_PERIOD_COUNT);
     param_set_int(params, SNDRV_PCM_HW_PARAM_SAMPLE_BITS, 16);
     param_set_int(params, SNDRV_PCM_HW_PARAM_FRAME_BITS,
             mProxyParams.mProxyPcmHandle->channels - 1 ? 32 : 16);
@@ -3136,6 +3163,45 @@ void  ALSADevice::setACDBHandle(void* handle)
 
     acdb_loader_get_ecrx_device = (int (*)(int))::dlsym(macdb_handle,
                                                 "acdb_loader_get_ecrx_device");
+}
+#endif
+
+#ifdef QCOM_WFD_ENABLED
+status_t ALSADevice::setProxyPortChannelCount(int channels)
+{
+    status_t err = NO_ERROR;
+    const char *channelCntStr = NULL;
+    //use the existing channel count set by hardware params to
+    //configure the back end for stereo as usb/a2dp would be
+    //stereo by default.
+    ALOGD("setProxyPortChannelCount channels = %d", channels);
+    switch (channels) {
+    case 8: channelCntStr = "Eight"; break;
+    case 7: channelCntStr = "Seven"; break;
+    case 6: channelCntStr = "Six"; break;
+    case 5: channelCntStr = "Five"; break;
+    case 4: channelCntStr = "Four"; break;
+    case 3: channelCntStr = "Three"; break;
+    default: channelCntStr = "Two"; break;
+    }
+
+    if(channels >= 2 && channels < 8) {
+       err = setMixerControl("PROXY_RX Channels", channelCntStr);
+       if(err)
+          ALOGE("set Proxy Count error = %d",err);
+    }
+    return err;
+}
+
+int ALSADevice::getWFDChannelCaps()
+{
+    //need to return 6 here to verify as set parameter is not working
+    return mWFDChannelCap;
+}
+
+void ALSADevice::setWFDChannelCaps(int ChannelCaps)
+{
+    mWFDChannelCap = ChannelCaps;
 }
 #endif
 

@@ -285,7 +285,8 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
             Mutex::Autolock autoLock(mParent->mLock);
 #ifdef TARGET_B_FAMILY
             char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
-            if(!mParent->mALSADevice->getEDIDData(hdmiEDIDData)) {
+            if(mDevices &  AudioSystem::DEVICE_OUT_AUX_DIGITAL &&
+                   !mParent->mALSADevice->getEDIDData(hdmiEDIDData)) {
                 if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
                     for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
                         if(info.AudioBlocksArray[i].nFormatId == LPCM) {
@@ -341,6 +342,22 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
                 ALOGE("Failed to get HDMI sink capabilities");
             }
 #endif
+            if((mDevices &  AudioSystem::DEVICE_OUT_PROXY)) {
+               int32_t channelCount, sampleRate;
+                  ALOGE("Proxy channel count");
+                  mParent->getWFDAudioSinkCaps(channelCount,sampleRate);
+                  switch(channelCount) {
+                      case 6:
+                         ENUM_TO_STRING(value, AUDIO_CHANNEL_OUT_5POINT1);
+                         break;
+                      case 8:
+                         ENUM_TO_STRING(value, AUDIO_CHANNEL_OUT_7POINT1);
+                         break;
+                      default:
+                         ALOGD("Unsupported number of channels %d", channelCount);
+                         break;
+                 }
+            }
         }
         param.add(key, value);
     }
