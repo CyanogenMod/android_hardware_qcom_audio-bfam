@@ -687,13 +687,14 @@ status_t AudioStreamInALSA::standby()
        }
     }
 #endif
-    mHandle->module->standby(mHandle);
 
 #ifdef QCOM_USBAUDIO_ENABLED
     ALOGD("Checking for musbRecordingState %d", mParent->musbRecordingState);
     mParent->musbRecordingState &= ~USBRECBIT_REC;
     mParent->closeUsbRecordingIfNothingActive();
 #endif
+    mHandle->module->standby(mHandle);
+
 
     return NO_ERROR;
 }

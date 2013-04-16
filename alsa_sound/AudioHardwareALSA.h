@@ -139,6 +139,8 @@ static int USBPLAYBACKBIT_VOIPCALL = (1 << 2);
 static int USBPLAYBACKBIT_FM = (1 << 3);
 static int USBPLAYBACKBIT_LPA = (1 << 4);
 static int USBPLAYBACKBIT_TUNNEL = (1 << 5);
+static int USBPLAYBACKBIT_MULTICHANNEL = (1 << 6);
+static int USBPLAYBACKBIT_LOWLATENCY = (1 << 7);
 
 static int USBRECBIT_REC = (1 << 0);
 static int USBRECBIT_VOICECALL = (1 << 1);
