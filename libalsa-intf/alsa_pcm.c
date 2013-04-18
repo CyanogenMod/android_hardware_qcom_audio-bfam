@@ -466,6 +466,9 @@ long pcm_avail(struct pcm *pcm)
          else
              buffer_size = pcm->buffer_size/4;
 
+         if (pcm->format == SNDRV_PCM_FORMAT_S24_LE)
+             buffer_size = buffer_size / 2;
+
          avail = sync_ptr->s.status.hw_ptr - sync_ptr->c.control.appl_ptr + buffer_size;
          if (avail < 0)
               avail += pcm->sw_p->boundary;
@@ -541,7 +544,10 @@ u_int8_t *dst_address(struct pcm *pcm)
     else
         channels = 2;
 
-    appl_ptr = sync_ptr->c.control.appl_ptr*2*channels;
+    if (pcm->format == SNDRV_PCM_FORMAT_S24_LE)
+        appl_ptr = sync_ptr->c.control.appl_ptr*2*2*channels;
+    else
+        appl_ptr = sync_ptr->c.control.appl_ptr*2*channels;
     pcm_offset = (appl_ptr % (unsigned long)pcm->buffer_size);
     return pcm->addr + pcm_offset;
 
