@@ -26,6 +26,7 @@
 
 #include <hardware_legacy/AudioHardwareInterface.h>
 #include <hardware_legacy/AudioSystemLegacy.h>
+#include "AudioHardwareALSA.h"
 
 namespace android_audio_legacy {
 
@@ -38,8 +39,18 @@ struct qcom_audio_module {
 struct qcom_audio_device {
     struct audio_hw_device device;
 
-    struct AudioHardwareInterface *hwif;
+    AudioHardwareALSA  *hwif;
 };
+
+struct qcom_audio_device *qadev = NULL;
+static int qadevRefCount = 0;
+
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+struct qcom_listen_ses {
+    struct listen_session listen_handle;
+    ListenSession *sHandle;
+};
+#endif
 
 struct qcom_stream_out {
     struct audio_stream_out stream;
@@ -776,6 +787,85 @@ static int adev_dump(const struct audio_hw_device *dev, int fd)
     return qadev->hwif->dumpState(fd, args);
 }
 
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+static status_t register_sound_model(struct listen_session* handle,
+                                 struct listen_sound_model_params *params)
+{
+    struct qcom_listen_ses *listen =
+        reinterpret_cast<struct qcom_listen_ses *>(handle);
+
+    return listen->sHandle->registerSoundModel(params);
+}
+
+static status_t deregister_sound_model(struct listen_session* handle)
+{
+    struct qcom_listen_ses *listen =
+        reinterpret_cast<struct qcom_listen_ses *>(handle);
+
+    return listen->sHandle->deregisterSoundModel();
+}
+
+static status_t set_session_observer(struct listen_session* handle,
+                                 listen_callback_t cb_func)
+{
+    struct qcom_listen_ses *listen =
+        reinterpret_cast<struct qcom_listen_ses *>(handle);
+
+    return listen->sHandle->setSessionObserver(cb_func, (void*)handle);
+}
+
+static status_t adev_open_listen_session(struct audio_hw_device *dev,
+                                    struct listen_session** handle)
+{
+   struct qcom_audio_device *qadev = to_ladev(dev);
+   status_t status;
+   struct qcom_listen_ses *listen;
+
+   listen = (struct qcom_listen_ses *)calloc(1, sizeof(*listen));
+   if (!listen)
+       return -ENOMEM;
+
+   status = qadev->hwif->openListenSession(&listen->sHandle);
+   if (!listen->sHandle) {
+       goto err_open;
+   }
+
+   listen->listen_handle.register_sound_model = register_sound_model;
+   listen->listen_handle.deregister_sound_model = deregister_sound_model;
+   listen->listen_handle.set_session_observer = set_session_observer;
+
+   *handle = &listen->listen_handle;
+   ALOGV("%s: listen_session opened handle = %p", *handle);
+   return 0;
+
+   err_open:
+       free(listen);
+       *handle = NULL;
+       return status;
+}
+
+static status_t adev_close_listen_session(struct audio_hw_device *dev,
+                                      struct listen_session* handle)
+{
+    struct qcom_audio_device *qadev = to_ladev(dev);
+    struct qcom_listen_ses *listen =
+        reinterpret_cast<struct qcom_listen_ses *>(handle);
+    status_t ret;
+
+    ret = qadev->hwif->closeListenSession(listen->sHandle);
+    free(listen);
+    return ret;
+}
+
+static status_t adev_set_mad_observer(struct audio_hw_device *dev,
+                                      listen_callback_t cb_func)
+{
+    struct qcom_audio_device *qadev = to_ladev(dev);
+
+    return qadev->hwif->setMadObserver(cb_func);
+}
+#endif
+
 static int qcom_adev_close(hw_device_t* device)
 {
     struct audio_hw_device *hwdev =
@@ -785,21 +875,30 @@ static int qcom_adev_close(hw_device_t* device)
     if (!qadev)
         return 0;
 
+    if ((--qadevRefCount) == 0) {
     if (qadev->hwif)
         delete qadev->hwif;
-
     free(qadev);
+            qadev = NULL;
+    }
+
     return 0;
 }
 
 static int qcom_adev_open(const hw_module_t* module, const char* name,
                             hw_device_t** device)
 {
-    struct qcom_audio_device *qadev;
     int ret;
 
     if (strcmp(name, AUDIO_HARDWARE_INTERFACE) != 0)
         return -EINVAL;
+
+    if(qadev) {
+        // If the device is already opened use the same
+        *device = &qadev->device.common;
+        qadevRefCount++;
+        return 0;
+    }
 
     qadev = (struct qcom_audio_device *)calloc(1, sizeof(*qadev));
     if (!qadev)
@@ -830,13 +929,20 @@ static int qcom_adev_open(const hw_module_t* module, const char* name,
     qadev->device.close_input_stream = adev_close_input_stream;
     qadev->device.dump = adev_dump;
 
-    qadev->hwif = createAudioHardware();
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    qadev->device.open_listen_session = adev_open_listen_session;
+    qadev->device.close_listen_session = adev_close_listen_session;
+    qadev->device.set_mad_observer = adev_set_mad_observer;
+#endif
+
+    qadev->hwif = reinterpret_cast< AudioHardwareALSA *> (createAudioHardware());
     if (!qadev->hwif) {
         ret = -EIO;
         goto err_create_audio_hw;
     }
 
     *device = &qadev->device.common;
+    qadevRefCount++;
 
     return 0;
 

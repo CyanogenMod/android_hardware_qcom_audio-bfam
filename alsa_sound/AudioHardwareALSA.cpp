@@ -119,6 +119,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
 #endif
     mBluetoothVGS = false;
     mFusion3Platform = false;
+    //mIsVoicePathActive = false;
 
     mRouteAudioToExtOut = false;
     mA2dpDevice = NULL;
@@ -136,6 +137,10 @@ AudioHardwareALSA::AudioHardwareALSA() :
 
 #ifdef QCOM_ACDB_ENABLED
     acdb_deallocate = NULL;
+#endif
+
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    mListenHw == NULL;
 #endif
 
     mALSADevice = new ALSADevice();
@@ -311,6 +316,20 @@ AudioHardwareALSA::AudioHardwareALSA() :
         mALSADevice->setSpkrProtHandle(&mspkrProtection);
     } else
         ALOGD("Speaker Protection disabled");
+
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    mListenHw = new ListenHardware(mUcMgr, mAcdbHandle);
+    if (mListenHw == NULL) {
+        ALOGE("Failed to create ListenHardware");
+    }
+    else {
+        if (mListenHw->init() != NO_ERROR) {
+            ALOGE("Failed Init ListenHardware");
+            delete mListenHw;
+            mListenHw = NULL;
+        }
+    }
+#endif
 }
 
 AudioHardwareALSA::~AudioHardwareALSA()
@@ -357,6 +376,12 @@ AudioHardwareALSA::~AudioHardwareALSA()
             ::dlclose(mCsdHandle);
             mCsdHandle = NULL;
         }
+    }
+#endif
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    if (mListenHw) {
+        delete mListenHw;
+        mListenHw = NULL;
     }
 #endif
 }
@@ -770,7 +795,16 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         parseDDPParams(ddp_dev, ddp_ch_cap, &param);
     }
 
-    if (param.size()) {
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    key = String8(AUDIO_PARAMETER_KEY_MAD);
+    if (param.get(key, value) == NO_ERROR) {
+        if (mListenHw) {
+            status = mListenHw->setParameters(keyValuePairs);
+        }
+        param.remove(key);
+    }
+#endif
+    if (status != NO_ERROR || param.size()) {
         status = BAD_VALUE;
     }
     return status;
@@ -861,7 +895,6 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
         param.addInt(key, mCurDevice);
     }
 
-
     key = String8("snd_card_name");
     if (param.get(key, value) == NO_ERROR) {
         struct snd_ctl_card_info *cardInfo;
@@ -876,7 +909,17 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
         param.addInt(key, cardInfo->card);
     }
 
-    ALOGD("AudioHardwareALSA::getParameters() %s", param.toString().string());
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    if (mListenHw) {
+        String8 rKey = mListenHw->getParameters(keys);
+
+        if (rKey != "") {
+            return rKey;
+        }
+    }
+#endif
+
+    ALOGV("AudioHardwareALSA::getParameters() %s", param.toString().string());
     return param.toString();
 }
 
@@ -1164,6 +1207,38 @@ uint32_t AudioHardwareALSA::getVoipMode(int format)
     }
 }
 
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+status_t AudioHardwareALSA::openListenSession(ListenSession** handle)
+{
+    status_t status = NO_INIT;
+    ALOGV("openListenSession: Enter");
+    if (mListenHw)
+        status = mListenHw->openListenSession(handle);
+    ALOGD("openListenSession: Exit status=%d", status);
+    return status;
+}
+
+status_t AudioHardwareALSA::closeListenSession(ListenSession* handle)
+{
+    status_t status = NO_INIT;
+    ALOGV("closeListenSession: Enter");
+    if (mListenHw)
+        status = mListenHw->closeListenSession(handle);
+    ALOGV("closeListenSession: Exit status=%d", status);
+    return status;
+}
+
+status_t AudioHardwareALSA::setMadObserver(listen_callback_t cb_func)
+{
+    status_t status = NO_INIT;
+    ALOGV("setMadObserver: Enter");
+    if (mListenHw)
+        status = mListenHw->setMadObserver(cb_func);
+    ALOGV("setMadObserver: Exit status=%d", status);
+    return status;
+}
+#endif //QCOM_LISTEN_FEATURE_ENABLE
+
 AudioStreamOut *
 AudioHardwareALSA::openOutputStream(uint32_t devices,
                                     int *format,
@@ -1290,9 +1365,22 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
           } else {
               snd_use_case_set(mUcMgr, "_enamod", SND_USE_CASE_MOD_PLAY_VOIP);
           }
+      #ifdef QCOM_LISTEN_FEATURE_ENABLE
+          //Notify to listen HAL that capture is active
+          if (mListenHw) {
+              mListenHw->notifyEvent(AUDIO_CAPTURE_ACTIVE);
+          }
+      #endif
+
           err = mALSADevice->startVoipCall(&(*it));
           if (err) {
               ALOGE("Device open failed");
+        #ifdef QCOM_LISTEN_FEATURE_ENABLE
+              //Notify to listen HAL that voip call is inactive
+            if (mListenHw) {
+                  mListenHw->notifyEvent(AUDIO_CAPTURE_INACTIVE);
+            }
+        #endif
               return NULL;
           }
       }
@@ -1607,6 +1695,12 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
         ALOGE("openInputStream failed error:0x%x devices:%x",err,devices);
         return in;
     }
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    //Notify to listen HAL that Audio capture is active
+    if (mListenHw) {
+        mListenHw->notifyEvent(AUDIO_CAPTURE_ACTIVE);
+    }
+#endif
 
     if((devices == AudioSystem::DEVICE_IN_COMMUNICATION) &&
        ((*sampleRate == VOIP_SAMPLING_RATE_8K) || (*sampleRate == VOIP_SAMPLING_RATE_16K))) {
@@ -1699,6 +1793,12 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
            err = mALSADevice->startVoipCall(&(*it));
            if (err) {
                ALOGE("Error opening pcm input device");
+        #ifdef QCOM_LISTEN_FEATURE_ENABLE
+               //Notify to listen HAL that Audio capture is inactive
+            if (mListenHw) {
+                   mListenHw->notifyEvent(AUDIO_CAPTURE_INACTIVE);
+            }
+        #endif
                return NULL;
            }
         }
@@ -1926,6 +2026,13 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
         }
         if (err) {
            ALOGE("Error opening pcm input device");
+        #ifdef QCOM_LISTEN_FEATURE_ENABLE
+            //Notify to listen HAL that Audio capture is inactive
+            if (mListenHw) {
+                mListenHw->notifyEvent(AUDIO_CAPTURE_INACTIVE);
+            }
+        #endif
+
         } else {
            in = new AudioStreamInALSA(this, &(*it), acoustics);
            err = in->set(format, channels, sampleRate, devices);
@@ -1938,6 +2045,12 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
 void
 AudioHardwareALSA::closeInputStream(AudioStreamIn* in)
 {
+    #ifdef QCOM_LISTEN_FEATURE_ENABLE
+        //Notify to listen HAL that Audio capture is inactive
+        if (mListenHw) {
+            mListenHw->notifyEvent(AUDIO_CAPTURE_INACTIVE);
+        }
+    #endif
     delete in;
 }
 
@@ -2127,6 +2240,13 @@ void AudioHardwareALSA::disableVoiceCall(char* verb, char* modifier, int mode,
         }
     }
 
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    //Notify to listen HAL that voice call is inactive
+    if (mListenHw) {
+        mListenHw->notifyEvent(AUDIO_CAPTURE_INACTIVE);
+    }
+#endif
+
 #ifdef QCOM_USBAUDIO_ENABLED
    if(musbPlaybackState & USBPLAYBACKBIT_VOICECALL) {
           ALOGD("Voice call ended on USB");
@@ -2145,6 +2265,13 @@ void AudioHardwareALSA::enableVoiceCall(char* verb, char* modifier, int mode,
     unsigned long bufferSize = DEFAULT_VOICE_BUFFER_SIZE;
     alsa_handle_t alsa_handle;
     char *use_case;
+
+#ifdef QCOM_LISTEN_FEATURE_ENABLE
+    //Notify to listen HAL that voice call is active
+    if (mListenHw) {
+        mListenHw->notifyEvent(AUDIO_CAPTURE_ACTIVE);
+    }
+#endif
 
     snd_use_case_get(mUcMgr, "_verb", (const char **)&use_case);
     if ((use_case == NULL) || (!strcmp(use_case, SND_USE_CASE_VERB_INACTIVE))) {
