@@ -521,8 +521,10 @@ void AudioHardwareALSA::parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParamet
         param->remove(key);
     }
 
-    if (ddp_dev == mCurDevice)
+    if (ddp_dev == mCurDevice) {
+        Mutex::Autolock autoLock(mLock);
         setDDPEndpParams(ddp_dev);
+    }
 }
 
 status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
@@ -3177,27 +3179,25 @@ status_t AudioHardwareALSA::setDDPEndpParams(int device)
     int dev_ch_cap = 2, idx;
     EDID_AUDIO_INFO info = { 0 };
 
-    if(device & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
-        char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
-        if(mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
-            if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
-                for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
-                    if (info.AudioBlocksArray[i].nChannels > dev_ch_cap &&
-                          info.AudioBlocksArray[i].nChannels <= 8) {
-                        dev_ch_cap = info.AudioBlocksArray[i].nChannels;
-                    }
-                }
-            }
-        }
-    }
-
     for(ALSAHandleList::iterator it = mDeviceList.begin(); it != mDeviceList.end(); it++) {
         if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
            (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL)) ) {
             if ((it->format == AUDIO_FORMAT_EAC3 ||
                  it->format == AUDIO_FORMAT_AC3) &&
-                (it->handle))
-                {
+                (it->handle)) {
+                if(device & AudioSystem::DEVICE_OUT_AUX_DIGITAL) {
+                    char hdmiEDIDData[MAX_SHORT_AUDIO_DESC_CNT+1];
+                    if(mALSADevice->getEDIDData(hdmiEDIDData) == NO_ERROR) {
+                        if (AudioUtil::getHDMIAudioSinkCaps(&info, hdmiEDIDData)) {
+                            for (int i = 0; i < info.nAudioBlocks && i < MAX_EDID_BLOCKS; i++) {
+                                if (info.AudioBlocksArray[i].nChannels > dev_ch_cap &&
+                                    info.AudioBlocksArray[i].nChannels <= 8) {
+                                    dev_ch_cap = info.AudioBlocksArray[i].nChannels;
+                                }
+                            }
+                        }
+                    }
+                 }
                  char *ddpEndpParams;
                  int length;
                  ddpEndpParams = (char *) malloc (2*DDP_ENDP_NUM_PARAMS*sizeof(int));

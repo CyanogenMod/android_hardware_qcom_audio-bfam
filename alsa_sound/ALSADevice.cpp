@@ -2560,6 +2560,7 @@ status_t ALSADevice::getMixerControl(const char *name, unsigned int &value, int 
 status_t ALSADevice::getMixerControlExt(const char *name, unsigned **getValues, unsigned *count)
 {
     struct mixer_ctl *ctl;
+    status_t err = NO_ERROR;
 
     if (!mMixer) {
         ALOGE("Control not initialized");
@@ -2575,8 +2576,8 @@ status_t ALSADevice::getMixerControlExt(const char *name, unsigned **getValues, 
         return BAD_VALUE;
     }
 
-    mixer_ctl_get_mulvalues(ctl, getValues, count);
-    return NO_ERROR;
+    err = mixer_ctl_get_mulvalues(ctl, getValues, count);
+    return err;
 }
 
 status_t ALSADevice::setMixerControl(const char *name, unsigned int value, int index)
@@ -3025,8 +3026,8 @@ status_t ALSADevice::getEDIDData(char *hdmiEDIDData)
     }
     if(err == NO_ERROR) {
         err = getMixerControlExt("HDMI EDID", EDIDData, &count);
-        hdmiEDIDData[0] = (char)(count);
         if(err == NO_ERROR) {
+            hdmiEDIDData[0] = (char)(count);
             for(int i=0; i<count; i++) {
                 hdmiEDIDData[i+1] = (char) (*(EDIDData[i]));
             }
