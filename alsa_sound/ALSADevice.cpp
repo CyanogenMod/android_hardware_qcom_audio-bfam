@@ -91,6 +91,7 @@ ALSADevice::ALSADevice() {
     char value[128], platform[128], baseband[128];
 
     mStatus = OK;
+    mMixer = NULL;
 
     property_get("persist.audio.handset.mic",value,"0");
     strlcpy(mMicType, value, sizeof(mMicType));
@@ -111,6 +112,19 @@ ALSADevice::ALSADevice() {
     strlcpy(mCurRxUCMDevice, "None", sizeof(mCurRxUCMDevice));
     strlcpy(mCurTxUCMDevice, "None", sizeof(mCurTxUCMDevice));
 
+
+    mProxyParams.mExitRead = false;
+    mProxyParams.mPfdProxy[1].fd = -1;
+    resetProxyVariables();
+    mProxyParams.mCaptureBufferSize = AFE_PROXY_PERIOD_SIZE;
+    mProxyParams.mCaptureBuffer = NULL;
+    mProxyParams.mProxyState = proxy_params::EProxyClosed;
+    mProxyParams.mProxyPcmHandle = NULL;
+    mSpkrInUse = false;
+    mSpkrCalibrationDone = false;
+    mSpkLastUsedTime.tv_sec = 0;
+    mSpkLastUsedTime.tv_usec = 0;
+    mSpkrProt = NULL;
     /* Make sure sound cards are populated */
     if ((fp = fopen("/proc/asound/cards", "r")) == NULL) {
         ALOGE("Cannot open /proc/asound/cards file to get sound card info");
@@ -170,18 +184,6 @@ ALSADevice::ALSADevice() {
         mStatus = NO_INIT;
     }
 
-    mProxyParams.mExitRead = false;
-    mProxyParams.mPfdProxy[1].fd = -1;
-    resetProxyVariables();
-    mProxyParams.mCaptureBufferSize = AFE_PROXY_PERIOD_SIZE;
-    mProxyParams.mCaptureBuffer = NULL;
-    mProxyParams.mProxyState = proxy_params::EProxyClosed;
-    mProxyParams.mProxyPcmHandle = NULL;
-    mSpkrInUse = false;
-    mSpkrCalibrationDone = false;
-    mSpkLastUsedTime.tv_sec = 0;
-    mSpkLastUsedTime.tv_usec = 0;
-    mSpkrProt = NULL;
     ALOGD("ALSA module opened");
 }
 
