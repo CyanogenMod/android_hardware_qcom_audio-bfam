@@ -1,6 +1,6 @@
 /*
 ** Copyright 2010, The Android Open-Source Project
-** Copyright (c) 2011-2012, The Linux Foundation. All rights reserved.
+** Copyright (c) 2011-2013, The Linux Foundation. All rights reserved.
 **
 ** Licensed under the Apache License, Version 2.0 (the "License");
 ** you may not use this file except in compliance with the License.
@@ -272,6 +272,8 @@ static int play_file(unsigned rate, unsigned channels, int fd,
     static int start = 0;
     struct pollfd pfd[1];
     int remainingData = 0;
+    int bytes_to_read;
+    int rc;
 
     flags |= PCM_OUT;
 
@@ -383,7 +385,10 @@ static int play_file(unsigned rate, unsigned channels, int fd,
         pfd[0].fd = pcm->timer_fd;
         pfd[0].events = POLLIN;
 
-        frames = bufsize / (2*channels);
+        if (!compressed && (format == SNDRV_PCM_FORMAT_S24_LE))
+            frames = bufsize / (2*2*channels);
+        else
+            frames = bufsize / (2*channels);
         for (;;) {
              if (!pcm->running) {
                   if (pcm_prepare(pcm)) {
@@ -440,14 +445,35 @@ static int play_file(unsigned rate, unsigned channels, int fd,
               */
              memset(dst_addr, 0x0, bufsize);
 
+             if (!compressed && (format == SNDRV_PCM_FORMAT_S24_LE))
+                 bytes_to_read = (bufsize / 4) * 3;
+             else
+                 bytes_to_read = bufsize;
+
              if (data_sz && !piped) {
-                 if (remainingData < bufsize) {
-                     bufsize = remainingData;
-                     frames = remainingData / (2*channels);
+                 if (remainingData < bytes_to_read) {
+                     bytes_to_read = remainingData;
+                     if (!compressed && (format == SNDRV_PCM_FORMAT_S24_LE)) {
+                         bufsize = (bytes_to_read * 4) / 3;
+                         frames = remainingData / (2*2*channels);
+                     }
+                     else
+                         frames = remainingData / (2*channels);
                  }
              }
-             fprintf(stderr, "addr = %d, size = %d \n", (dst_addr + outputMetadataLength),(bufsize - outputMetadataLength));
-             err = read(fd, (dst_addr + outputMetadataLength) , (bufsize - outputMetadataLength));
+             fprintf(stderr, "addr = 0x%08x, size = %d \n", (dst_addr + outputMetadataLength),(bytes_to_read - outputMetadataLength));
+             err = read(fd, (dst_addr + outputMetadataLength) , (bytes_to_read - outputMetadataLength));
+
+             if (!compressed) {
+                 data = (char *)(dst_addr + outputMetadataLength);
+                 rc = buffer_data(pcm, data, bufsize);
+                 if (rc) {
+                     fprintf(stderr, "Aplay: error in buffer padding\n");
+                     pcm_close(pcm);
+                     return rc;
+                  }
+              }
+
              if(compressed) {
                  updateMetaData(err);
                  memcpy(dst_addr, &outputMetadataTunnel, outputMetadataLength);
@@ -461,7 +487,7 @@ static int play_file(unsigned rate, unsigned channels, int fd,
                  break;
              }
              if (data_sz && !piped) {
-                 remainingData -= bufsize;
+                 remainingData -= bytes_to_read;
                  if (remainingData <= 0)
                      break;
              }
@@ -544,8 +570,6 @@ start_done:
                 poll(pfd, nfds, TIMEOUT_INFINITE);
         }
     } else {
-        int bytes_to_read;
-        int rc;
 
         if (pcm_prepare(pcm)) {
             fprintf(stderr, "Aplay:Failed in pcm_prepare\n");
