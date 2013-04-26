@@ -209,8 +209,8 @@ static int USBRECBIT_FM = (1 << 3);
 /* Rear right of center. */
 #define PCM_CHANNEL_RRC  16
 
-#define SOUND_CARD_SLEEP_RETRY 5  /*  Will check 5 times before continuing */
-#define SOUND_CARD_SLEEP_WAIT 100 /* 100 ms */
+#define SOUND_CARD_SLEEP_RETRY 15  /*  Will check 5 times before continuing */
+#define SOUND_CARD_SLEEP_WAIT 1000 /* 100 ms */
 #define PARAM_ID_MAX_OUTPUT_CHANNELS    0x00010DE2
 #define PARAM_ID_CTL_RUNNING_MODE       0x0
 #define PARAM_ID_CTL_ERROR_CONCEAL      0x00010DE3
