@@ -133,12 +133,17 @@ ALSADevice::ALSADevice() {
     } else {
         while ((fgets(soundCardInfo, sizeof(soundCardInfo), fp) != NULL)) {
             if (strstr(soundCardInfo, "no soundcards")) {
-                ALOGE("NO SOUND CARD DETECTED");
+                ALOGE("NO SOUND CARD DETECTED %s", soundCardInfo);
                 if (sleep_retry < SOUND_CARD_SLEEP_RETRY) {
-                    ALOGD("Sleeping for 100 ms");
+                    ALOGD("Sleeping for 1 second");
+                    fclose(fp);
                     usleep(SOUND_CARD_SLEEP_WAIT * 1000);
                     sleep_retry++;
-                    fseek(fp, 0, SEEK_SET);
+                    if((fp = fopen("/proc/asound/cards", "r")) == NULL) {
+                        ALOGE("Cannot open /proc/asound/cards file to get sound card info");
+                        mStatus = NO_INIT;
+                        return;
+                    }
                     continue;
                 } else {
                     ALOGE("Failed %d attempts for sound card detection", sleep_retry);
@@ -150,7 +155,9 @@ ALSADevice::ALSADevice() {
                 break;
             }
         }
-        fclose(fp);
+        if(fp) {
+           fclose(fp);
+        }
     }
 
     for (i = 0; i < MAX_SOUND_CARDS; i++) {
