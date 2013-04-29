@@ -375,8 +375,17 @@ uint32_t ALSAStreamOps::sampleRate() const
 //
 size_t ALSAStreamOps::bufferSize() const
 {
+    uint32_t tunnelBufferSize;
+    bool tunnelCapture = checkTunnelCaptureMode(tunnelBufferSize);
+    if(tunnelCapture) {
+        //One AMR WB frame is 61 bytes. Return that to the caller.
+        //The buffer size is not altered, that is still period size.
+        return tunnelBufferSize;
+    }
+
     ALOGV("bufferSize() returns %d", mHandle->bufferSize);
     return mHandle->bufferSize;
+
 }
 
 int ALSAStreamOps::format() const
@@ -486,6 +495,24 @@ status_t ALSAStreamOps::open(int mode)
 {
     ALOGD("open");
     return mParent->mALSADevice->open(mHandle);
+}
+
+//check if tunnel mode capture is used.
+//reference parameter tunnelBufferSize returns the framesize for tunnel format
+bool ALSAStreamOps::checkTunnelCaptureMode(uint32_t &tunnelBufferSize) const
+{
+
+    if((!strncmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED,
+        strlen(SND_USE_CASE_VERB_HIFI_REC_COMPRESSED))) ||
+        (!strncmp(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED,
+        strlen(SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED)))) {
+        if (mHandle->format == AUDIO_FORMAT_AMR_WB) {
+            ALOGD("return 61 bytes for AMR WB and tunnel capture mode");
+            tunnelBufferSize = AMR_WB_FRAMESIZE;
+        }
+        return true;
+    }
+    return false;
 }
 
 }       // namespace androidi_audio_legacy

@@ -471,8 +471,8 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
         (strncmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP, strlen(SND_USE_CASE_MOD_PLAY_VOIP)))) {
         ALOGV("AUDIO_FORMAT_AMR_WB");
         do {
-            if (read_pending < 61) {
-                read_pending = 61;
+            if (read_pending < AMR_WB_FRAMESIZE) {
+                read_pending = AMR_WB_FRAMESIZE;
             }
             //We should pcm_read period_size to get complete data from driver
             n = pcm_read(mHandle->handle, buffer, period_size);

@@ -92,6 +92,7 @@ class AudioHardwareALSA;
 #define VOIP_BUFFER_SIZE_16K   640
 #define MAX_CAPTURE_BUFFER_SIZE_PER_CH   2048
 #define FM_BUFFER_SIZE        1024
+#define AMR_WB_FRAMESIZE      61
 
 #define VOIP_SAMPLING_RATE_8K 8000
 #define VOIP_SAMPLING_RATE_16K 16000
@@ -583,6 +584,9 @@ public:
 
     status_t            open(int mode);
     void                close();
+
+private:
+    bool checkTunnelCaptureMode(uint32_t &tunnelBufferSize) const;
 
 protected:
     friend class AudioHardwareALSA;
