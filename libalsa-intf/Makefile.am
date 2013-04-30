@@ -39,7 +39,8 @@ dist_libalsa_intf_DATA    = snd_soc_msm/snd_soc_msm \
                             snd_soc_msm/snd_soc_msm_I2SFusion \
                             snd_soc_msm/snd_soc_msm_Taiko \
                             snd_soc_msm/snd_soc_msm_Taiko_liquid \
-                            snd_soc_msm/snd_soc_msm_Tapan
+                            snd_soc_msm/snd_soc_msm_Tapan \
+                            snd_soc_msm/snd_soc_msm_8x10_wcd
 libalsa_intf_la_CFLAGS = $(AM_CFLAGS) -DUSE_GLIB @GLIB_CFLAGS@ -DCONFIG_DIR=\"/etc/snd_soc_msm/\"
 libalsa_intf_la_CPPFLAGS = $(AM_CPPFLAGS) -DUSE_GLIB @GLIB_CFLAGS@
 libalsa_intf_la_LDFLAGS = $(ACDBLOADER_LIBS) -lm -lpthread @GLIB_LIBS@ -shared -version-info 1:0:0
