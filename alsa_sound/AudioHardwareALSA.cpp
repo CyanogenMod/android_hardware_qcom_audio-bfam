@@ -2748,7 +2748,8 @@ status_t AudioHardwareALSA::stopPlaybackOnExtOut_l(uint32_t activeUsecase) {
 
 #ifdef OUTPUT_BUFFER_LOG
     ALOGV("close file output");
-    fclose (outputBufferFile1);
+    if(outputBufferFile1)
+        fclose (outputBufferFile1);
 #endif
          }
      }
