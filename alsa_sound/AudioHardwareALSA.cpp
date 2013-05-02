@@ -3052,7 +3052,7 @@ void AudioHardwareALSA::extOutThreadFunc() {
         proxyBufferTime = mALSADevice->mProxyParams.mBufferTime;
         {
             Mutex::Autolock autolock1(mExtOutMutex);
-            if (mResampler != NULL) {
+            if (mResampler != NULL && (mUsbStream == mExtOutStream)) {
                 uint32_t inFrames = size/(AFE_PROXY_CHANNEL_COUNT*2);
                 uint32_t outFrames = inFrames;
                 mResampler->resample_from_input(mResampler,
