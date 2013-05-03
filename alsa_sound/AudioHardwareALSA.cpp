@@ -838,14 +838,12 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     key = String8(MODE_CALL_KEY);
     if (param.getInt(key,state) == NO_ERROR) {
         if (mCallState != state) {
-            if(!((!(mCallState & 0xF) && ((state & 0xF) ==  CS_ACTIVE)) ||
-                 (!(mCallState & 0xF0) && ((state & 0xF0) == IMS_ACTIVE)) ||
-                 (!(mCallState & 0xF00) && ((state & 0xF00) == CS_ACTIVE_SESSION2)))) {
-                mCallState = state;
+            mCallState = state;
+            if (isAnyCallActive()) {
                 doRouting(0);
             }
-            mCallState = state;
         }
+        param.remove(key);
     }
     key = String8("ddp_device");
     if (param.getInt(key, ddp_dev) == NO_ERROR) {
@@ -2399,6 +2397,19 @@ void AudioHardwareALSA::enableVoiceCall(char* verb, char* modifier, int mode,
        musbRecordingState |= USBRECBIT_VOICECALL;
     }
 #endif
+}
+
+bool AudioHardwareALSA::isAnyCallActive() {
+
+    bool ret = false;
+
+    if ((mCSCallActive == CS_ACTIVE) ||
+        (mVoice2CallActive == CS_ACTIVE_SESSION2) ||
+        (mVolteCallActive == IMS_ACTIVE)) {
+        ret = true;
+    }
+
+    return ret;
 }
 
 bool AudioHardwareALSA::routeVoiceCall(int device, int newMode)
