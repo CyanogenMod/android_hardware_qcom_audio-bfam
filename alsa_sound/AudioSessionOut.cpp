@@ -200,9 +200,7 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
             ALOGD("Setting LPA volume to %d (available range is 0 to 100)\n", mStreamVol);
             mAlsaHandle->module->setLpaVolume(mStreamVol);
             return status;
-        }
-        else if(!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL) ||
-                !strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL)) {
+        } else if (isTunnelUseCase(mAlsaHandle->useCase)) {
             ALOGD("setCompressedVolume(%u)\n", mStreamVol);
             ALOGD("Setting Compressed volume to %d (available range is 0 to 100)\n", mStreamVol);
             mAlsaHandle->module->setCompressedVolume(mStreamVol);
@@ -230,9 +228,11 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
     } else if (type == TUNNEL_MODE) {
         if ((use_case == NULL) || (!strncmp(use_case, SND_USE_CASE_VERB_INACTIVE,
                                             strlen(SND_USE_CASE_VERB_INACTIVE)))) {
-            status = openDevice(SND_USE_CASE_VERB_HIFI_TUNNEL, true, devices);
+            //for hifi use cases
+            status = openDevice(mParent->getTunnel(true), true, devices);
         } else {
-            status = openDevice(SND_USE_CASE_MOD_PLAY_TUNNEL, false, devices);
+            //for other than hifi use cases
+            status = openDevice(mParent->getTunnel(false), false, devices);
         }
         mOutputMetadataLength = sizeof(output_metadata_handle_t);
         ALOGD("openAudioSessionDevice - mOutputMetadataLength = %d", mOutputMetadataLength);
@@ -739,6 +739,18 @@ status_t AudioSessionOutALSA::standby()
                  (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))) {
             ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
             mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL2;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL3;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL4;
         }
         mParent->closeUsbPlaybackIfNothingActive();
     }
@@ -867,7 +879,8 @@ status_t AudioSessionOutALSA::openDevice(char *useCase, bool bIsUseCase, int dev
     alsa_handle.bufferSize  = mInputBufferSize;
     alsa_handle.devices     = devices;
     alsa_handle.handle      = 0;
-    alsa_handle.format      = (mFormat == AUDIO_FORMAT_PCM_16_BIT ? SNDRV_PCM_FORMAT_S16_LE : mFormat);
+    alsa_handle.format      = (mFormat == AUDIO_FORMAT_PCM_16_BIT ?
+SNDRV_PCM_FORMAT_S16_LE : mFormat);
     //ToDo: Add conversion from channel Mask to channel count.
     if (mChannels == AUDIO_CHANNEL_OUT_MONO)
         alsa_handle.channels = MONO_CHANNEL_MODE;
@@ -901,6 +914,21 @@ status_t AudioSessionOutALSA::openDevice(char *useCase, bool bIsUseCase, int dev
             ALOGD("doRouting: Tunnel Player device switch to proxy");
             mParent->startUsbPlaybackIfNotStarted();
             mParent->musbPlaybackState |= USBPLAYBACKBIT_TUNNEL;
+        } else if((!strcmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2)) ||
+            (!strcmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2))) {
+            ALOGD("doRouting: Tunnel Player device switch to proxy");
+            mParent->startUsbPlaybackIfNotStarted();
+            mParent->musbPlaybackState |= USBPLAYBACKBIT_TUNNEL2;
+        } else if((!strcmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3)) ||
+            (!strcmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3))) {
+            ALOGD("doRouting: Tunnel Player device switch to proxy");
+            mParent->startUsbPlaybackIfNotStarted();
+            mParent->musbPlaybackState |= USBPLAYBACKBIT_TUNNEL3;
+        } else if((!strcmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4)) ||
+            (!strcmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4))) {
+            ALOGD("doRouting: Tunnel Player device switch to proxy");
+            mParent->startUsbPlaybackIfNotStarted();
+            mParent->musbPlaybackState |= USBPLAYBACKBIT_TUNNEL4;
         }
    }
 
@@ -921,6 +949,9 @@ status_t AudioSessionOutALSA::closeDevice(alsa_handle_t *pHandle)
     //TODO: remove from mDeviceList
     if(pHandle) {
         status = mAlsaDevice->close(pHandle);
+	if (mTunnelMode) {
+            mParent->freeTunnel(pHandle->useCase);
+        }
     }
     return status;
 }
@@ -994,6 +1025,18 @@ void AudioSessionOutALSA::reset() {
                  (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))) {
             ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
             mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL2;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL3;
+        } else if((!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4)) ||
+                 (!strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4))) {
+            ALOGV("Deregistering Tunnel Player bit: musbPlaybackState =%d",mParent->musbPlaybackState);
+            mParent->musbPlaybackState &= ~USBPLAYBACKBIT_TUNNEL4;
         }
     }
 #endif
@@ -1009,10 +1052,7 @@ void AudioSessionOutALSA::reset() {
     ALOGV("Erase device list");
     for(ALSAHandleList::iterator it = mParent->mDeviceList.begin();
             it != mParent->mDeviceList.end(); ++it) {
-        if((!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-                            strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
-           (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-                            strlen(SND_USE_CASE_MOD_PLAY_TUNNEL))) ||
+        if( isTunnelUseCase(it->useCase) ||
            (!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER,
                             strlen(SND_USE_CASE_VERB_HIFI_LOW_POWER))) ||
            (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_LPA,
@@ -1049,10 +1089,7 @@ status_t AudioSessionOutALSA::drainAndPostEOS_l()
     }
 
     mSkipEOS = false;
-    if ((!strncmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-                  strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
-       (!strncmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-                  strlen(SND_USE_CASE_MOD_PLAY_TUNNEL)))) {
+    if (isTunnelUseCase(mAlsaHandle->useCase)) {
         ALOGD("Audio Drain DONE ++");
         mLock.unlock(); //to allow flush()
         int ret = ioctl(mAlsaHandle->handle->fd, SNDRV_COMPRESS_DRAIN);

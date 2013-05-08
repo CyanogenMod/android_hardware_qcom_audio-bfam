@@ -146,6 +146,7 @@ enum decoder_alias {
     FORMAT_AMRWB_PLUS       = SND_AUDIOCODEC_AMRWBPLUS,
     FORMAT_AC3              = SND_AUDIOCODEC_AC3,
     FORMAT_EAC3             = SND_AUDIOCODEC_EAC3,
+    FORMAT_PCM              = SND_AUDIOCODEC_PCM,
 };
 
 int get_compressed_format(const char *format)
@@ -154,6 +155,9 @@ int get_compressed_format(const char *format)
         if (strcmp(ch, "MP3") == 0) {
                 printf("MP3 is selected\n");
                 return FORMAT_MP3;
+        } else if (strcmp(ch, "PCM") == 0) {
+                printf("PCM is selected\n");
+                return FORMAT_PCM;
         } else if (strcmp(ch, "AC3_PASS_THROUGH") == 0) {
                 printf("AC3 PASS THROUGH is selected\n");
                 return FORMAT_AC3_PASS_THROUGH;
