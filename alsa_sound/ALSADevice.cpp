@@ -451,6 +451,12 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
     }
 
     reqBuffSize = handle->bufferSize;
+    if ((!strcmp(handle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED)) ||
+        (!strcmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED))) {
+         handle->bufferSize = reqBuffSize = compr_cap.min_fragment_size;
+         ALOGD("Period size for tunnel capture = %d", compr_cap.min_fragment_size);
+    }
+
     ALOGD("setHardwareParams: reqBuffSize %d channels %d sampleRate %d",
          (int) reqBuffSize, handle->channels, handle->sampleRate);
 
@@ -540,13 +546,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
         strcmp(handle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED) &&
         (6 != handle->channels)) {
         //Do not update buffersize for 5.1 recording
-        if (handle->format == AUDIO_FORMAT_AMR_WB &&
-            format != SNDRV_PCM_FORMAT_SPECIAL) {
-            ALOGD("### format AMWB, set bufsize to 61");
-            handle->bufferSize = 61;
-        } else {
-            handle->bufferSize = handle->handle->period_size;
-        }
+        handle->bufferSize = handle->handle->period_size;
     }
 
     return NO_ERROR;
