@@ -193,8 +193,9 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
             else
                  mHandle->module->open(mHandle);
             if(mHandle->handle == NULL) {
-                ALOGE("write:: device open failed");
+                ALOGE("write:: device open failed sleeping for 5 ms");
                 mParent->mLock.unlock();
+                usleep(5000);
                 return bytes;
             }
 #ifdef QCOM_USBAUDIO_ENABLED
@@ -228,7 +229,7 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
                 status_t err = NO_ERROR;
                 err = mParent->startPlaybackOnExtOut_l(mUseCase);
                 if(err) {
-                    ALOGE("startPlaybackOnExtOut_l from write return err = %d", err);
+                    ALOGE("startPlaybackOnExtOut_l from write return err = %d not sleeping", err);
                     mParent->mLock.unlock();
                     return err;
                 }
@@ -309,8 +310,9 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
                     mHandle->module->open(mHandle);
                 }
                 if(mHandle->handle == NULL) {
-                   ALOGE("write:: device re-open failed");
+                   ALOGE("write:: device re-open failed sleeping for 5 ms");
                    mParent->mLock.unlock();
+                   usleep(5000);
                    return bytes;
                 }
             }
