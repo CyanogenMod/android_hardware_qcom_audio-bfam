@@ -296,9 +296,27 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
                             //Stereo case is handled in normal playback path
                             case 6:
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_5POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_PENTA);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_2POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_QUAD);
+                                value += append;
                                 break;
                             case 8:
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_7POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_6POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_5POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_PENTA);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_2POINT1);
+                                value += append + String8("|");
+                                ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_QUAD);
+                                value += append;
                                 break;
                             default:
                                 ALOGD("Unsupported number of channels %d", info.AudioBlocksArray[i].nChannels);
