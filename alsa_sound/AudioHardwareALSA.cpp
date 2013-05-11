@@ -915,11 +915,7 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
 
 #ifdef QCOM_LISTEN_FEATURE_ENABLE
     if (mListenHw) {
-        String8 rKey = mListenHw->getParameters(keys);
-
-        if (rKey != "") {
-            return rKey;
-        }
+        mListenHw->getParameters(keys);
     }
 #endif
 
