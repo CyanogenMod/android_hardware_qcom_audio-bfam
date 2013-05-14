@@ -184,6 +184,8 @@ AudioHardwareALSA::AudioHardwareALSA() :
         snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko_Fluid", cardInfo->card);
     } else if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-liquid-snd-card")) {
         snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko_liquid", cardInfo->card);
+    } else if (!strcmp((const char*)cardInfo->name, "apq8074-taiko-db-snd-card")) {
+        snd_use_case_mgr_create(&mUcMgr, "snd_soc_apq_Taiko_DB", cardInfo->card);
     } else if (!strcmp((const char*)cardInfo->name, "msm8x10-snd-card")) {
         snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_8x10_wcd", cardInfo->card);
     } else if (!strcmp((const char*)cardInfo->name, "msm8930-sitar-snd-card")) {
