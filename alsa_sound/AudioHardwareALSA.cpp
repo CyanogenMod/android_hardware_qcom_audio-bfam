@@ -134,6 +134,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
     mExtOutThreadAlive = false;
     mExtOutThread = NULL;
     mUcMgr = NULL;
+    mCanOpenProxy=1;
 
 #ifdef QCOM_ACDB_ENABLED
     acdb_deallocate = NULL;
@@ -956,6 +957,12 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
     if (param.get(key, value) == NO_ERROR) {
         param.addInt(key, mCurDevice);
     }
+
+    key = String8(AudioParameter::keyCanOpenProxy);
+    if(param.get(key, value) == NO_ERROR) {
+        param.addInt(key, mCanOpenProxy);
+    }
+
 
     key = String8("snd_card_name");
     if (param.get(key, value) == NO_ERROR) {
@@ -2745,7 +2752,21 @@ status_t AudioHardwareALSA::startPlaybackOnExtOut_l(uint32_t activeUsecase) {
     }
     if (activeUsecase != USECASE_NONE && !mIsExtOutEnabled) {
         Mutex::Autolock autolock1(mExtOutMutex);
-        err = mALSADevice->openProxyDevice();
+         err = setProxyProperty(0);
+         if(err) {
+            ALOGE("Proxy Property Set Failedd");
+        }
+        int ProxyOpenRetryCount=PROXY_OPEN_RETRY_COUNT;
+        while(ProxyOpenRetryCount){
+            err = mALSADevice->openProxyDevice();
+            if(err) {
+                 ProxyOpenRetryCount --;
+                 usleep(PROXY_OPEN_WAIT_TIME * 1000);
+                 ALOGV("openProxyDevice failed retrying = %d", ProxyOpenRetryCount);
+            }
+            else
+               break;
+        }
         if(err) {
             ALOGE("openProxyDevice failed = %d", err);
         }
@@ -2776,6 +2797,20 @@ status_t AudioHardwareALSA::startPlaybackOnExtOut_l(uint32_t activeUsecase) {
     mExtOutCv.signal();
     return err;
 }
+
+status_t AudioHardwareALSA::setProxyProperty(uint32_t value) {
+     status_t err=NO_ERROR;
+     if(value){
+        //property_set("proxy.can.open", "true");
+        mCanOpenProxy = 1;
+     }
+     else{
+        //property_set("proxy.can.open", "false");
+        mCanOpenProxy = 0;
+     }
+     return err;
+}
+
 
 status_t AudioHardwareALSA::stopPlaybackOnExtOut(uint32_t activeUsecase) {
      Mutex::Autolock autoLock(mLock);
@@ -2815,7 +2850,7 @@ status_t AudioHardwareALSA::stopPlaybackOnExtOut_l(uint32_t activeUsecase) {
              if(err) {
                  ALOGE("closeProxyDevice failed = %d", err);
              }
-
+             err = setProxyProperty(1);
              mExtOutActiveUseCases = 0x0;
              mRouteAudioToExtOut = false;
 
