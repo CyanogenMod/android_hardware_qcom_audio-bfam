@@ -3089,7 +3089,7 @@ void AudioHardwareALSA::extOutThreadFunc() {
             }
             //If the write fails make this thread sleep and let other
             //thread (eg: stopA2DP) to acquire lock to prevent a deadlock.
-            if(bytesWritten == -1) {
+            if(bytesWritten == -1 || bytesWritten == 0) {
                 ALOGV("bytesWritten = %d",bytesWritten);
                 usleep(10000);
                 break;
