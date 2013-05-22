@@ -334,6 +334,7 @@ AudioHardwareALSA::AudioHardwareALSA() :
         }
     }
 #endif
+    mTunnelsUsed = 0;
 }
 
 AudioHardwareALSA::~AudioHardwareALSA()
@@ -388,6 +389,61 @@ AudioHardwareALSA::~AudioHardwareALSA()
         mListenHw = NULL;
     }
 #endif
+}
+char* AudioHardwareALSA::getTunnel(bool hifi) {
+    char* ret = NULL;
+    ALOGV("mTunnelsUsed: 0x%x", mTunnelsUsed);
+    if (!(mTunnelsUsed & 0x1)) {
+        mTunnelsUsed |= 0x1;
+        ret = SND_USE_CASE_MOD_PLAY_TUNNEL;
+        if (hifi) {
+            ret = SND_USE_CASE_VERB_HIFI_TUNNEL;
+        }
+    } else if (!(mTunnelsUsed & 0x2)) {
+        mTunnelsUsed |= 0x2;
+        ret = SND_USE_CASE_MOD_PLAY_TUNNEL2;
+        if (hifi) {
+            ret = SND_USE_CASE_VERB_HIFI_TUNNEL2;
+        }
+    } else if (!(mTunnelsUsed & 0x4)) {
+        mTunnelsUsed |= 0x4;
+        ret = SND_USE_CASE_MOD_PLAY_TUNNEL3;
+        if (hifi) {
+            ret = SND_USE_CASE_VERB_HIFI_TUNNEL3;
+        }
+    } else if (!(mTunnelsUsed & 0x8)) {
+        mTunnelsUsed |= 0x8;
+        ret = SND_USE_CASE_MOD_PLAY_TUNNEL4;
+        if (hifi) {
+            ret = SND_USE_CASE_VERB_HIFI_TUNNEL4;
+        }
+    }
+    ALOGV("Tunnel utilized: %s", ret);
+    return ret;
+}
+void AudioHardwareALSA::freeTunnel(char* useCase) {
+    if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
+        strlen(SND_USE_CASE_MOD_PLAY_TUNNEL)) ||
+        !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
+        strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) {
+        mTunnelsUsed &= ~0x1;
+    } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2,
+              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL2)) ||
+              !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2,
+              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL2))) {
+        mTunnelsUsed &= ~0x2;
+    } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3,
+              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL3)) ||
+              !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3,
+              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL3))) {
+        mTunnelsUsed &= ~0x4;
+    } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4,
+              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL4)) ||
+              !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4,
+              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL4))) {
+        mTunnelsUsed &= ~0x8;
+    }
+    ALOGV("Tunnel freed: %s", useCase);
 }
 
 status_t AudioHardwareALSA::initCheck()
@@ -1066,6 +1122,24 @@ status_t AudioHardwareALSA::doRouting(int device)
                                     startUsbPlaybackIfNotStarted();
                                     musbPlaybackState |= USBPLAYBACKBIT_TUNNEL;
                                     break;
+                         } else if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2)) ||
+                                   (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2))) {
+                                    ALOGD("doRouting: Tunnel Player device switch to proxy");
+                                    startUsbPlaybackIfNotStarted();
+                                    musbPlaybackState |= USBPLAYBACKBIT_TUNNEL2;
+                                    break;
+                         } else if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3)) ||
+                                   (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3))) {
+                                    ALOGD("doRouting: Tunnel Player device switch to proxy");
+                                    startUsbPlaybackIfNotStarted();
+                                    musbPlaybackState |= USBPLAYBACKBIT_TUNNEL3;
+                                    break;
+                         } else if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4)) ||
+                                   (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4))) {
+                                    ALOGD("doRouting: Tunnel Player device switch to proxy");
+                                    startUsbPlaybackIfNotStarted();
+                                    musbPlaybackState |= USBPLAYBACKBIT_TUNNEL4;
+                                    break;
                          } else if((!strcmp(it->useCase, SND_USE_CASE_VERB_VOICECALL)) ||
                                    (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_VOICE))) {
                                     ALOGD("doRouting: VOICE device switch to proxy");
@@ -1094,7 +1168,10 @@ status_t AudioHardwareALSA::doRouting(int device)
             if (!((device & AudioSystem::DEVICE_OUT_ALL_A2DP) &&
                   (mCurRxDevice & AUDIO_DEVICE_OUT_ALL_USB))) {
                 if ((activeUsecase == USECASE_HIFI_LOW_POWER) ||
-                    (activeUsecase == USECASE_HIFI_TUNNEL)) {
+                    (activeUsecase == USECASE_HIFI_TUNNEL) ||
+                    (activeUsecase == USECASE_HIFI_TUNNEL2) ||
+                    (activeUsecase == USECASE_HIFI_TUNNEL3) ||
+                    (activeUsecase == USECASE_HIFI_TUNNEL4)) {
                     if (device != mCurRxDevice) {
                         if((isExtOutDevice(mCurRxDevice)) &&
                            (isExtOutDevice(device))) {
@@ -2626,10 +2703,7 @@ bool AudioHardwareALSA::routeVoLTECall(int device, int newMode)
 void AudioHardwareALSA::pauseIfUseCaseTunnelOrLPA() {
     for (ALSAHandleList::iterator it = mDeviceList.begin();
            it != mDeviceList.end(); it++) {
-        if((!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-                strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
-            (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-                strlen(SND_USE_CASE_MOD_PLAY_TUNNEL))) ||
+        if ((isTunnelUseCase(it->useCase)) ||
             (!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER,
                 strlen(SND_USE_CASE_VERB_HIFI_LOW_POWER))) ||
             (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_LPA,
@@ -2642,10 +2716,7 @@ void AudioHardwareALSA::pauseIfUseCaseTunnelOrLPA() {
 void AudioHardwareALSA::resumeIfUseCaseTunnelOrLPA() {
     for (ALSAHandleList::iterator it = mDeviceList.begin();
            it != mDeviceList.end(); it++) {
-        if((!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-                strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
-            (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-                strlen(SND_USE_CASE_MOD_PLAY_TUNNEL))) ||
+        if ((isTunnelUseCase(it->useCase)) ||
             (!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER,
                 strlen(SND_USE_CASE_VERB_HIFI_LOW_POWER))) ||
             (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_LPA,
@@ -3140,6 +3211,21 @@ uint32_t AudioHardwareALSA::useCaseStringToEnum(const char *usecase)
               (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL,
                            strlen(SND_USE_CASE_MOD_PLAY_TUNNEL)))) {
        activeUsecase = USECASE_HIFI_TUNNEL;
+   } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL2,
+                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL2))) ||
+              (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL2,
+                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL2)))) {
+       activeUsecase = USECASE_HIFI_TUNNEL2;
+   } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL3,
+                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL3))) ||
+              (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL3,
+                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL3)))) {
+       activeUsecase = USECASE_HIFI_TUNNEL3;
+   } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL4,
+                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL4))) ||
+              (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL4,
+                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL4)))) {
+       activeUsecase = USECASE_HIFI_TUNNEL4;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC,
                            strlen(SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC )))||
                (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC,
@@ -3188,8 +3274,7 @@ status_t AudioHardwareALSA::setDDPEndpParams(int device)
     EDID_AUDIO_INFO info = { 0 };
 
     for(ALSAHandleList::iterator it = mDeviceList.begin(); it != mDeviceList.end(); it++) {
-        if((!strcmp(it->useCase, SND_USE_CASE_VERB_HIFI_TUNNEL)) ||
-           (!strcmp(it->useCase, SND_USE_CASE_MOD_PLAY_TUNNEL)) ) {
+        if (isTunnelUseCase(it->useCase)) {
             if ((it->format == AUDIO_FORMAT_EAC3 ||
                  it->format == AUDIO_FORMAT_AC3) &&
                 (it->handle)) {

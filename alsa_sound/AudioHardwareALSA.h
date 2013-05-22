@@ -143,8 +143,11 @@ static int USBPLAYBACKBIT_VOIPCALL = (1 << 2);
 static int USBPLAYBACKBIT_FM = (1 << 3);
 static int USBPLAYBACKBIT_LPA = (1 << 4);
 static int USBPLAYBACKBIT_TUNNEL = (1 << 5);
-static int USBPLAYBACKBIT_MULTICHANNEL = (1 << 6);
-static int USBPLAYBACKBIT_LOWLATENCY = (1 << 7);
+static int USBPLAYBACKBIT_TUNNEL2 = (1 << 6);
+static int USBPLAYBACKBIT_TUNNEL3 = (1 << 7);
+static int USBPLAYBACKBIT_TUNNEL4 = (1 << 8);
+static int USBPLAYBACKBIT_MULTICHANNEL = (1 << 9);
+static int USBPLAYBACKBIT_LOWLATENCY = (1 << 10);
 
 static int USBRECBIT_REC = (1 << 0);
 static int USBRECBIT_VOICECALL = (1 << 1);
@@ -1045,6 +1048,9 @@ private:
     void         switchExtOut(int device);
     status_t     setDDPEndpParams(int device);
     void         parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParameter *param);
+    unsigned int mTunnelsUsed;
+    char*        getTunnel(bool hifi);
+    void         freeTunnel(char* useCase);
 protected:
     virtual status_t    dump(int fd, const Vector<String16>& args);
     virtual uint32_t    getVoipMode(int format);
@@ -1142,6 +1148,9 @@ protected:
       USECASE_HIFI_LOW_POWER = 0x4,
       USECASE_HIFI_TUNNEL = 0x8,
       USECASE_FM = 0x10,
+      USECASE_HIFI_TUNNEL2 = 0x20,
+      USECASE_HIFI_TUNNEL3 = 0x40,
+      USECASE_HIFI_TUNNEL4 = 0x80,
     };
     uint32_t mExtOutActiveUseCases;
     status_t mStatus;
@@ -1154,6 +1163,27 @@ public:
     bool mRouteAudioToExtOut;
 };
 
+static bool isTunnelUseCase(const char *useCase) {
+    if ((!strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
+                           MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
+        (!strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2,
+                           MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2))) ||
+        (!strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3,
+                           MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3))) ||
+        (!strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4,
+                           MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4))) ||
+        (!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
+                           MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL))) ||
+        (!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2,
+                           MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2))) ||
+        (!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3,
+                           MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3))) ||
+        (!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4,
+                           MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4)))) {
+        return true;
+    }
+    return false;
+}
 // ----------------------------------------------------------------------------
 
 };        // namespace android_audio_legacy
