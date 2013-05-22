@@ -246,7 +246,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_VERB_HIFI_REC_COMPRESSED    "HiFi Rec Compressed"
 #define SND_USE_CASE_VERB_HIFI3       "HiFi3"
 #define SND_USE_CASE_VERB_HIFI_PSEUDO_TUNNEL    "HiFi Pseudo Tunnel"
-#define SND_USE_CASE_VERB_SPKR_PROT_TX   "Vi Capture"
+#define SND_USE_CASE_VERB_SPKR_PROT_TX   "VI Capture"
 #define SND_USE_CASE_VERB_SPKR_CALIB_RX		"Spk Calibration"
 #define SND_USE_CASE_VERB_VOICE2             "Voice2"
 
@@ -313,7 +313,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_DEV_AANC_DMIC_ENDFIRE  "AANC DMIC Endfire"
 #define SND_USE_CASE_DEV_SPEAKER_PROTECTED	"Speaker Protected"
 
-#define SND_USE_CASE_MOD_SPKR_PROT_TX   "Vi Capture Mod"
+#define SND_USE_CASE_MOD_SPKR_PROT_TX   "VI Capture Mod"
 #define SND_USE_CASE_MOD_PLAY_FM         "Play FM"
 #define SND_USE_CASE_MOD_CAPTURE_FM      "Capture FM"
 #define SND_USE_CASE_MOD_CAPTURE_LOWLATENCY_MUSIC     "Capture Lowlatency Music"

@@ -104,9 +104,11 @@ namespace android_audio_legacy
   after boot up*/
 #define WAIT_TIME_SPKR_CALIB (60 * 1000 * 1000)
 
+#define MIN_SPKR_IDLE_SEC (60 * 30)
+
 /*Once calibration is started sleep for 1 sec to allow
   the calibration to kick off*/
-#define SLEEP_AFTER_CALIB_START (1000 * 1000)
+#define SLEEP_AFTER_CALIB_START (3)
 
 /*If calibration is in progress wait for 200 msec before querying
   for status again*/
@@ -120,9 +122,6 @@ namespace android_audio_legacy
 #define SPKR_PROCESSING_IN_PROGRESS 1
 #define SPKR_PROCESSING_IN_IDLE 0
 
-/*Thermal Daemon Timeout in secs*/
-#define SPKR_CALIB_THERMAL_TIMEOUT 60 * 2
-
 /*Modes of Speaker Protection*/
 enum speaker_protection_mode {
     SPKR_PROTECTION_DISABLED = -1,
@@ -134,17 +133,18 @@ void AudioSpeakerProtection::updateSpkrT0(int t0)
 {
     Mutex::Autolock autolock1(mSpkrProtThermalSyncMutex);
     ALOGE("spkr_prot set t0 %d and signal", t0);
-    if (mSpkrProtMode == SPKR_NOT_CALIBRATED) {
+    if (mSpkrProtMode == MSM_SPKR_PROT_NOT_CALIBRATED) {
         mSpkrProtT0 = t0;
     }
     mSpkrProtThermalSync.signal();
 }
 
 AudioSpeakerProtection::AudioSpeakerProtection():
-	mParent(NULL),mALSADevice(NULL),mSpkrProtMode(SPKR_NOT_CALIBRATED),
+	mParent(NULL),mALSADevice(NULL),mSpkrProtMode(MSM_SPKR_PROT_DISABLED),
     mSpkrProcessingState(SPKR_PROCESSING_IN_IDLE),
     mThermalClientHandle(0),mThermalHandle(NULL),
-    mAcdbHandle(NULL), mUcMgr(NULL),mSpkrProtT0(-1)
+    mAcdbHandle(NULL), mUcMgr(NULL),mSpkrProtT0(-1),
+    mCancelSpkrCalib(0)
 {
 }
 
@@ -233,7 +233,8 @@ void AudioSpeakerProtection::startSpkrProcessing()
         return;
     }
 #endif
-    if (mSpkrProtMode != SPKR_CALIBRATED) {
+    if (mSpkrProtMode == MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS ||
+        mSpkrProtMode == MSM_SPKR_PROT_DISABLED) {
         ALOGV("Processing is not enabled for start");
         return;
     }
@@ -320,27 +321,13 @@ int AudioSpeakerProtection::spkCalibrate(int t0)
     int acdb_fd = -1;
     struct msm_spk_prot_cfg protCfg;
     struct msm_spk_prot_status status;
-    Mutex::Autolock autolock1(mMutexSpkrProt);
+    bool cleanup = false;
 #ifdef QCOM_ACDB_ENABLED
     if (!acdb_send_audio_cal) {
         ALOGE("spkr_prot_thread acdb_send_audio_cal is NULL");
         return -ENODEV;
     }
 #endif
-
-    acdb_fd = open("/dev/msm_acdb",O_RDWR | O_NONBLOCK);
-    if (acdb_fd < 0) {
-        ALOGE("spkr_prot_thread open msm_acdb failed");
-        return -ENODEV;
-    } else {
-        protCfg.mode = SPKR_PROTECTION_MODE_CALIBRATE;
-        protCfg.t0 = t0;
-        if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg)) {
-            ALOGE("spkr_prot_thread set failed AUDIO_SET_SPEAKER_PROT");
-            status.status = -ENODEV;
-            goto bail_out;
-        }
-    }
     strlcpy(alsa_handle.useCase, SND_USE_CASE_VERB_SPKR_CALIB_RX,
             sizeof(alsa_handle.useCase));
     alsa_handle.module = mALSADevice;
@@ -355,6 +342,25 @@ int AudioSpeakerProtection::spkCalibrate(int t0)
     alsa_handle.rxHandle = 0;
     alsa_handle.ucMgr = mUcMgr;
     mALSADevice->route(&alsa_handle, (uint32_t)device, newMode);
+    char *name = NULL;
+    snd_use_case_get(mUcMgr,"_verb",(const char **)&name);
+    if (name && strncmp(name,"Inactive",strlen("Inactive"))) {
+        ALOGE("%s usecase active retry", name);
+        return -EAGAIN;
+    }
+    acdb_fd = open("/dev/msm_acdb",O_RDWR | O_NONBLOCK);
+    if (acdb_fd < 0) {
+        ALOGE("spkr_prot_thread open msm_acdb failed");
+        return -ENODEV;
+    } else {
+        protCfg.mode = MSM_SPKR_PROT_CALIBRATION_IN_PROGRESS;
+        protCfg.t0 = t0;
+        if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg)) {
+            ALOGE("spkr_prot_thread set failed AUDIO_SET_SPEAKER_PROT");
+            status.status = -ENODEV;
+            goto bail_out;
+        }
+    }
     if (snd_use_case_set(mUcMgr, "_verb", SND_USE_CASE_VERB_SPKR_CALIB_RX)) {
         ALOGE("spkr_prot_thread set usecase failed %s for calibration",
               SND_USE_CASE_VERB_SPKR_CALIB_RX);
@@ -401,7 +407,14 @@ int AudioSpeakerProtection::spkCalibrate(int t0)
         status.status = -ENODEV;
         goto bail_out;
     }
-    usleep(SLEEP_AFTER_CALIB_START);
+    cleanup = true;
+    (void)mSpkrCalibCancel.waitRelative(mMutexSpkrProt,
+            seconds(SLEEP_AFTER_CALIB_START));
+    mSpkrCalibCancelAckMutex.lock();
+    if (mCancelSpkrCalib) {
+        status.status = -EAGAIN;
+        goto bail_out;
+    }
     if (acdb_fd > 0) {
         status.status = -EINVAL;
         while (!ioctl(acdb_fd, AUDIO_GET_SPEAKER_PROT,&status)) {
@@ -434,24 +447,32 @@ int AudioSpeakerProtection::spkCalibrate(int t0)
         mALSADevice->close(&alsa_handle_tx);
 bail_out:
         if (!status.status) {
-            protCfg.mode = SPKR_PROTECTION_MODE_PROCESSING;
+            protCfg.mode = MSM_SPKR_PROT_CALIBRATED;
             protCfg.r0 = status.r0;
             /*TO DO: T0 Needs to be provided to the API*/
             if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg))
                 ALOGE("spkr_prot_thread disable calib mode");
             else
-                mSpkrProtMode = SPKR_CALIBRATED;
-            mALSADevice->spkrCalibStatusUpdate(true);
+                mSpkrProtMode = MSM_SPKR_PROT_CALIBRATED;
         } else {
-            mALSADevice->spkrCalibStatusUpdate(false);
-            protCfg.mode = SPKR_PROTECTION_DISABLED;
-            mSpkrProtMode = SPKR_NOT_CALIBRATED;
+            protCfg.mode = MSM_SPKR_PROT_NOT_CALIBRATED;
+            mSpkrProtMode = MSM_SPKR_PROT_NOT_CALIBRATED;
             /*TO DO: T0 Needs to be provided to the API*/
             if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg))
                 ALOGE("spkr_prot_thread disable calib mode failed");
-            status.status = -ENODEV;
         }
-        close(acdb_fd);
+        if (acdb_fd > 0)
+            close(acdb_fd);
+        if (cleanup) {
+            if (mCancelSpkrCalib) {
+                /*Close RX and TX paths*/
+                mALSADevice->close(&alsa_handle);
+                mALSADevice->close(&alsa_handle_tx);
+                mSpkrCalibCancelAck.signal();
+            }
+            mCancelSpkrCalib = 0;
+            mSpkrCalibCancelAckMutex.unlock();
+        }
     }
     return status.status;
 }
@@ -465,8 +486,27 @@ void *AudioSpeakerProtection::spkrCalibrationThread(void *me)
     struct msm_spk_prot_cfg protCfg;
     FILE *fp;
     int acdb_fd;
-
-    alsad->mALSADevice->spkrCalibStatusUpdate(false);
+    alsad->mSpeakerProtthreadid = pthread_self();
+    acdb_fd = open("/dev/msm_acdb",O_RDWR | O_NONBLOCK);
+    if (acdb_fd > 0) {
+        /*Set processing mode with t0/r0*/
+        protCfg.mode = MSM_SPKR_PROT_NOT_CALIBRATED;
+        if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg)) {
+            ALOGE("spkr_prot_thread enable prot failed");
+            alsad->mSpkrProtMode = MSM_SPKR_PROT_DISABLED;
+            close(acdb_fd);
+        } else
+            alsad->mSpkrProtMode = MSM_SPKR_PROT_NOT_CALIBRATED;
+    } else {
+        alsad->mSpkrProtMode = MSM_SPKR_PROT_DISABLED;
+        ALOGE("Failed to open acdb node");
+    }
+    if (alsad->mSpkrProtMode == MSM_SPKR_PROT_DISABLED) {
+        ALOGE("Speaker protection disabled");
+        pthread_exit(0);
+        return NULL;
+    }
+    alsad->mALSADevice->spkrCalibStatusUpdate(true);
     fp = fopen(CALIB_FILE,"rb");
     if (fp) {
         fread(&protCfg.r0,sizeof(protCfg.r0),1,fp);
@@ -481,52 +521,33 @@ void *AudioSpeakerProtection::spkrCalibrationThread(void *me)
             protCfg.r0 >= MIN_RESISTANCE_SPKR_Q24
             && protCfg.r0 < MAX_RESISTANCE_SPKR_Q24) {
             ALOGD("spkr_prot_thread Spkr calibrated");
-            acdb_fd = open("/dev/msm_acdb",O_RDWR | O_NONBLOCK);
-            if (acdb_fd > 0) {
-                /*Set processing mode with t0/r0*/
-                protCfg.mode = SPKR_PROTECTION_MODE_PROCESSING;
-                if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg)) {
-                    ALOGE("spkr_prot_thread enable prot failed");
-                    alsad->mSpkrProtMode = SPKR_NOT_CALIBRATED;
-                } else
-                    alsad->mSpkrProtMode = SPKR_CALIBRATED;
-                close(acdb_fd);
-            }
-            fclose(fp);
-            alsad->mALSADevice->spkrCalibStatusUpdate(true);
+            protCfg.mode = MSM_SPKR_PROT_CALIBRATED;
+            if (ioctl(acdb_fd, AUDIO_SET_SPEAKER_PROT, &protCfg)) {
+                ALOGE("spkr_prot_thread enable prot failed");
+                alsad->mSpkrProtMode = MSM_SPKR_PROT_DISABLED;
+            } else
+                alsad->mSpkrProtMode = MSM_SPKR_PROT_CALIBRATED;
+            close(acdb_fd);
             pthread_exit(0);
             return NULL;
         }
+        close(acdb_fd);
     }
     while (1) {
-        /*Once device has booted up sleep for X time
-          Currently set to 1 min needs to be adjusted*/
-        usleep(WAIT_TIME_SPKR_CALIB);
         ALOGV("spkr_prot_thread up to start calibration");
-        if (alsad->mALSADevice->isSpeakerinUse(sec)) {
-            ALOGD("spkr_prot_thread Speaker in use retry calibration");
-            continue;
-        } else {
-            /*TODO: If speaker is idle > X mins proceed requesting
-              equilibrium Temp*/
-            ALOGD("spkr_prot_thread speaker idle %d", sec);
-        }
         if (!thermal_client_request("spkr",1)) {
-            ALOGE("spkr_prot wait for callback from thermal daemon");
+            ALOGD("spkr_prot wait for callback from thermal daemon");
             Mutex::Autolock autolock1(alsad->mSpkrProtThermalSyncMutex);
             status_t ret = NO_ERROR;
-            ret = alsad->mSpkrProtThermalSync.waitRelative(
-               alsad->mSpkrProtThermalSyncMutex,
-               seconds(SPKR_CALIB_THERMAL_TIMEOUT));
+            ret = alsad->mSpkrProtThermalSync.wait(
+               alsad->mSpkrProtThermalSyncMutex);
             /*Convert temp into q6 format*/
-            if (!ret) {
-                t0 = (alsad->mSpkrProtT0 * (1 << 6));
-            } else {
-                ALOGE("Thermal Daemon Timeout Assume safe T0");
-                alsad->mSpkrProtT0 = SAFE_SPKR_TEMP;
-                t0 = SAFE_SPKR_TEMP_Q6;
-            }
+            t0 = (alsad->mSpkrProtT0 * (1 << 6));
             alsad->mSpkrProtThermalSyncMutex.unlock();
+            if (t0 < MIN_SPKR_TEMP_Q6 || t0 > MAX_SPKR_TEMP_Q6) {
+                ALOGE("Calibration temparature error %d", alsad->mSpkrProtT0);
+                continue;
+            }
             ALOGD("spkr_prot Request t0 success value %d",
             alsad->mSpkrProtT0);
         } else {
@@ -535,39 +556,68 @@ void *AudioSpeakerProtection::spkrCalibrationThread(void *me)
             t0 = SAFE_SPKR_TEMP_Q6;
         }
         goAhead = false;
-        if (alsad->mALSADevice->isSpeakerinUse(sec)) {
-            ALOGD("spkr_prot_thread Speaker in use retry calibration");
-            continue;
-        } else {
-            ALOGD("spkr_prot_thread speaker idle %d", sec);
-            /*TODO: If speaker is idle > X mins proceed for calibration*/
-            goAhead = true;
-        }
-        char *name = NULL;
-        /*Check if any use case is active which is not using speaker*/
-        snd_use_case_get(alsad->mUcMgr,"_verb",(const char **)&name);
-        if (name) {
-            ALOGV("spkr_prot_thread use case present %s",name);
-            /*Check if use case is set to Inactive*/
-            if (strncmp(name,"Inactive",strlen("Inactive"))) {
-                goAhead = false;
-            }
-        }
-        if (goAhead) {
-            int status;
-            status = alsad->spkCalibrate(t0);
-            if (status == -EAGAIN) {
-                ALOGE("spkr_prot failed to calibrate try again %s",
-                      strerror(status));
+        {
+            Mutex::Autolock autolock1(alsad->mMutexSpkrProt);
+            if (alsad->mALSADevice->isSpeakerinUse(sec)) {
+                ALOGD("spkr_prot_thread Speaker in use retry calibration");
                 continue;
             } else {
-                ALOGE("spkr_prot calibrate status %s", strerror(status));
+                ALOGD("spkr_prot_thread speaker idle %d", sec);
+                /*TODO: If speaker is idle > X mins proceed for calibration*/
+                if (sec < MIN_SPKR_IDLE_SEC) {
+                    ALOGD("spkr_prot_thread speaker idle is less retry");
+                    continue;
+                }
+                goAhead = true;
             }
-            ALOGE("spkr_prot_thread end calibration");
-            break;
+            char *name = NULL;
+            /*Check if any use case is active which is not using speaker*/
+            snd_use_case_get(alsad->mUcMgr,"_verb",(const char **)&name);
+            if (name) {
+                ALOGV("spkr_prot_thread use case present %s",name);
+                /*Check if use case is set to Inactive*/
+                if (strncmp(name,"Inactive",strlen("Inactive"))) {
+                    goAhead = false;
+                }
+            }
+            if (goAhead) {
+                int status;
+                alsad->mALSADevice->spkrCalibStatusUpdate(false);
+                status = alsad->spkCalibrate(t0);
+                alsad->mALSADevice->spkrCalibStatusUpdate(true);
+                if (status == -EAGAIN) {
+                    ALOGE("spkr_prot failed to calibrate try again %s",
+                          strerror(status));
+                    continue;
+                } else {
+                    ALOGE("spkr_prot calibrate status %s", strerror(status));
+                }
+                ALOGE("spkr_prot_thread end calibration");
+                break;
+            }
         }
     }
     pthread_exit(0);
     return NULL;
+}
+void AudioSpeakerProtection::cancelCalibration()
+{
+    char *name = NULL;
+    pthread_t threadid;
+    threadid = pthread_self();
+    if (pthread_equal(mSpeakerProtthreadid, threadid))
+        return;
+    mMutexSpkrProt.lock();
+    snd_use_case_get(mUcMgr,"_verb",(const char **)&name);
+    if (name && !strncmp(name, SND_USE_CASE_VERB_SPKR_CALIB_RX,
+           strlen(SND_USE_CASE_VERB_SPKR_CALIB_RX))) {
+            mSpkrCalibCancelAckMutex.lock();
+            mCancelSpkrCalib = 1;
+            mSpkrCalibCancel.signal();
+            mMutexSpkrProt.unlock();
+            mSpkrCalibCancelAck.wait(mSpkrCalibCancelAckMutex);
+            mSpkrCalibCancelAckMutex.unlock();
+    } else
+        mMutexSpkrProt.unlock();
 }
 }
