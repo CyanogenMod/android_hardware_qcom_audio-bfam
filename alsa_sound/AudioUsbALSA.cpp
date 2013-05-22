@@ -1066,9 +1066,19 @@ void AudioUsbALSA::PlaybackThreadEntry() {
 
         snprintf(proxyDeviceName, sizeof(proxyDeviceName), "hw:%u,8", mProxySoundCard);
         ALOGD("Configuring Proxy capture device %s", proxyDeviceName);
-
-        mproxyPlaybackHandle = configureDevice(PCM_IN|PCM_STEREO|PCM_MMAP, proxyDeviceName,
+        int ProxyOpenRetryCount=PROXY_OPEN_RETRY_COUNT;
+        while(ProxyOpenRetryCount){
+                mproxyPlaybackHandle = configureDevice(PCM_IN|PCM_STEREO|PCM_MMAP, proxyDeviceName,
                                msampleRatePlayback, mchannelsPlayback, PROXY_PERIOD_SIZE, PROXY_RECORDING);
+                if(!mproxyPlaybackHandle){
+                     ProxyOpenRetryCount --;
+                     usleep(PROXY_OPEN_WAIT_TIME * 1000);
+                     ALOGD("openProxyDevice failed retrying = %d", ProxyOpenRetryCount);
+                }
+                else{
+                  break;
+                }
+        }
         if (!mproxyPlaybackHandle || mkillPlayBackThread) {
            ALOGE("ERROR: Could not configure Proxy, returning");
            err = closeDevice(musbPlaybackHandle);
