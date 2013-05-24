@@ -602,6 +602,11 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
 
     key = String8(AudioParameter::keyADSPStatus);
     if (param.get(key, value) == NO_ERROR) {
+    #ifdef QCOM_LISTEN_FEATURE_ENABLE
+        if (mListenHw) {
+            status = mListenHw->setParameters(keyValuePairs);
+        }
+    #endif
        if (value == "ONLINE") {
            ALOGV("ADSP online set SSRcomplete");
            mALSADevice->mADSPState = ADSP_UP_AFTER_SSR;
