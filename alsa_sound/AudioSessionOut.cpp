@@ -114,15 +114,18 @@ AudioSessionOutALSA::AudioSessionOutALSA(AudioHardwareALSA *parent,
 
     if(devices == 0) {
         ALOGE("No output device specified");
+        mSessionStatus = -1;
         return;
     }
     if((format == AUDIO_FORMAT_PCM_16_BIT) && (channels == 0 || channels > 6)) {
         ALOGE("Invalid number of channels %d", channels);
+        mSessionStatus = -1;
         return;
     }
 
     if(mParent->isExtOutDevice(devices)) {
         ALOGE("Set Capture from proxy true");
+        mSessionStatus = -1;
         mParent->mRouteAudioToExtOut = true;
         if(mParent->mExtOutStream == NULL) {
             mParent->switchExtOut(devices);
@@ -135,6 +138,7 @@ AudioSessionOutALSA::AudioSessionOutALSA(AudioHardwareALSA *parent,
 
     if (*status != NO_ERROR) {
         ALOGE("Failed to open LPA/Tunnel Session");
+        mSessionStatus = -1;
         return;
     }
     //Creates the event thread to poll events from LPA/Compress Driver
@@ -148,7 +152,9 @@ AudioSessionOutALSA::AudioSessionOutALSA(AudioHardwareALSA *parent,
         *status = err;
     }
 
+    mSessionStatus = 0;
     *status = NO_ERROR;
+     return;
 }
 
 AudioSessionOutALSA::~AudioSessionOutALSA()
@@ -177,6 +183,10 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
     Mutex::Autolock autoLock(mLock);
     float volume;
     status_t status = NO_ERROR;
+
+    if(mSessionStatus == -1){
+        return INVALID_OPERATION;
+    }
 
     volume = (left + right) / 2;
     if (volume < 0.0) {
@@ -225,6 +235,7 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
         } else {
             status = openDevice(SND_USE_CASE_MOD_PLAY_LPA, false, devices);
         }
+        ALOGD("openAudioSessionDevice - LPA status =%d", status);
     } else if (type == TUNNEL_MODE) {
         if ((use_case == NULL) || (!strncmp(use_case, SND_USE_CASE_VERB_INACTIVE,
                                             strlen(SND_USE_CASE_VERB_INACTIVE)))) {
@@ -235,7 +246,7 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
             status = openDevice(mParent->getTunnel(false), false, devices);
         }
         mOutputMetadataLength = sizeof(output_metadata_handle_t);
-        ALOGD("openAudioSessionDevice - mOutputMetadataLength = %d", mOutputMetadataLength);
+        ALOGD("openAudioSessionDevice - TunnelMode mOutputMetadataLength = %d, status =%d", mOutputMetadataLength, status);
         mTunnelMode = true;
     }
 
@@ -244,6 +255,7 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
         use_case = NULL;
     }
     if(status != NO_ERROR) {
+        ALOGE("AudioSessionOut open error ");
         return status;
     }
 
@@ -258,6 +270,8 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
     status_t err = mmap_buffer(mAlsaHandle->handle);
     if(err) {
         ALOGE("MMAP buffer failed - playback err = %d", err);
+        closeDevice(mAlsaHandle);
+        mAlsaHandle = NULL;
         return err;
     }
     ALOGV("buffer pointer %p ", mAlsaHandle->handle->addr);
@@ -266,6 +280,8 @@ status_t AudioSessionOutALSA::openAudioSessionDevice(int type, int devices)
     status = pcm_prepare(mAlsaHandle->handle);
     if (status) {
         ALOGE("PCM Prepare failed - playback err = %d", err);
+        closeDevice(mAlsaHandle);
+        mAlsaHandle = NULL;
         return status;
     }
     bufferAlloc(mAlsaHandle);
@@ -284,6 +300,10 @@ ssize_t AudioSessionOutALSA::write(const void *buffer, size_t bytes)
 
     mEosEventReceived = false;
     mReachedEOS = false;
+
+    if(mSessionStatus == -1){
+        return INVALID_OPERATION;
+    }
 
     if (!bytes) {
         mReachedEOS = true;
@@ -550,6 +570,10 @@ status_t AudioSessionOutALSA::start()
     //mEosEventReceived = false;
     //mReachedEOS = false;
     //mSkipEOS = false;
+    if(mSessionStatus == -1){
+        return INVALID_OPERATION;
+    }
+
     if (mPaused) {
         ALOGD("AudioSessionOutALSA ::start mPaused true");
         status_t err = NO_ERROR;
