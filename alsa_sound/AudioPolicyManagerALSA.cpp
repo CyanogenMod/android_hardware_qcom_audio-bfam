@@ -1426,13 +1426,8 @@ audio_devices_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strate
         uint32_t device2 = AUDIO_DEVICE_NONE;
         if (mForceUse[AudioSystem::FOR_MEDIA] != AudioSystem::FORCE_SPEAKER) {
             if (strategy != STRATEGY_SONIFICATION) {
-#ifdef QCOM_PROXY_DEVICE_ENABLED
-                // no sonification on WFD sink
-                device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_PROXY;
-#else
                 // no sonification on remote submix (e.g. WFD)
                 device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_REMOTE_SUBMIX;
-#endif
             }
             if ((device2 == AUDIO_DEVICE_NONE) &&
                     (mForceUse[AudioSystem::FOR_MEDIA] != AudioSystem::FORCE_NO_BT_A2DP) &&
@@ -1480,6 +1475,12 @@ audio_devices_t AudioPolicyManager::getDeviceForStrategy(routing_strategy strate
 #ifdef QCOM_FM_ENABLED
             if (device2 == AUDIO_DEVICE_NONE) {
                 device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_FM_TX;
+            }
+#endif
+#ifdef QCOM_PROXY_DEVICE_ENABLED
+            if ((strategy != STRATEGY_SONIFICATION) && (device2 == AUDIO_DEVICE_NONE)) {
+                // no sonification on WFD sink
+                device2 = mAvailableOutputDevices & AUDIO_DEVICE_OUT_PROXY;
             }
 #endif
             if (device2 == AUDIO_DEVICE_NONE) {
