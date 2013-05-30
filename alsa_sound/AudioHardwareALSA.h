@@ -137,6 +137,9 @@ class AudioHardwareALSA;
 #define LPA_SESSION_ID 1
 #define TUNNEL_SESSION_ID 2
 #ifdef QCOM_USBAUDIO_ENABLED
+#define PROXY_OPEN_WAIT_TIME  20
+#define PROXY_OPEN_RETRY_COUNT 100
+
 static int USBPLAYBACKBIT_MUSIC = (1 << 0);
 static int USBPLAYBACKBIT_VOICECALL = (1 << 1);
 static int USBPLAYBACKBIT_VOIPCALL = (1 << 2);
@@ -1016,6 +1019,7 @@ public:
 
     status_t    startPlaybackOnExtOut(uint32_t activeUsecase);
     status_t    stopPlaybackOnExtOut(uint32_t activeUsecase);
+    status_t    setProxyProperty(uint32_t value);
     bool        suspendPlaybackOnExtOut(uint32_t activeUsecase);
 
     status_t    startPlaybackOnExtOut_l(uint32_t activeUsecase);
@@ -1105,6 +1109,7 @@ protected:
 
     int32_t            mCurRxDevice;
     int32_t            mCurDevice;
+    int32_t            mCanOpenProxy;
     /* The flag holds all the audio related device settings from
      * Settings and Qualcomm Settings applications */
     uint32_t            mDevSettingsFlag;
