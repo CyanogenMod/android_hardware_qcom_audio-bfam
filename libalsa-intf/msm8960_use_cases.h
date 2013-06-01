@@ -66,7 +66,8 @@ extern "C" {
 #define DEVICE_BT_SCO_TX_WB_ACDB_ID                     38// BT_SCO_WB_MIC
 #define DEVICE_SPEAKER_HEADSET_RX_ACDB_ID               DEVICE_HEADSET_RX_ACDB_ID // Use headset calibration
 #define DEVICE_HDMI_STEREO_RX_ACDB_ID                   18// HDMI_SPKR
-#define DEVICE_ANC_HEADSET_STEREO_RX_ACDB_ID            26// ANC RX, same as regular headset
+#define DEVICE_ANC_HEADSET_STEREO_RX_ACDB_ID            26// ANC RX
+#define DEVICE_ANC_FB_HEADSET_STEREO_RX_ACDB_ID         27// ANC FB RX
 #define DEVICE_QUADMIC_ACDB_ID                          19// QUADMIC_SKPR
 #define DEVICE_PROXY_RX_ACDB_ID                         DEVICE_HDMI_STEREO_RX_ACDB_ID
 #define DEVICE_TTY_VCO_HANDSET_TX_ACDB_ID               36// TTY_VCO_HANDSET_MIC
@@ -253,6 +254,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_DEV_FM_TX           "FM Tx"
 #define SND_USE_CASE_DEV_ANC_HEADSET     "ANC Headset"
 #define SND_USE_CASE_DEV_ANC_HANDSET     "ANC Handset"
+#define SND_USE_CASE_DEV_ANC_FB_HEADSET  "ANC FB Headset"
 #define SND_USE_CASE_DEV_BTSCO_NB_RX        "BT SCO Rx"
 #define SND_USE_CASE_DEV_BTSCO_NB_TX        "BT SCO Tx"
 #define SND_USE_CASE_DEV_BTSCO_WB_RX        "BT SCO WB Rx"
@@ -291,6 +293,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_DEV_SPDIF_HANDSET     "SPDIF Earpiece"
 #define SND_USE_CASE_DEV_SPDIF_HEADSET     "SPDIF Headphones"
 #define SND_USE_CASE_DEV_SPDIF_ANC_HEADSET     "SPDIF ANC Headset"
+#define SND_USE_CASE_DEV_SPDIF_ANC_FB_HEADSET     "SPDIF ANC FB Headset"
 #define SND_USE_CASE_DEV_SPDIF_SPEAKER_HEADSET "SPDIF Speaker Headset"
 #define SND_USE_CASE_DEV_SPDIF_SPEAKER_ANC_HEADSET "SPDIF Speaker ANC Headset"
 #define SND_USE_CASE_DEV_DUMMY_TX "Dummy Tx"
@@ -299,6 +302,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_DEV_PROXY_RX_HANDSET     "PROXY Rx Earpiece"
 #define SND_USE_CASE_DEV_PROXY_RX_HEADSET     "PROXY Rx Headphones"
 #define SND_USE_CASE_DEV_PROXY_RX_ANC_HEADSET     "PROXY Rx ANC Headset"
+#define SND_USE_CASE_DEV_PROXY_RX_ANC_FB_HEADSET     "PROXY Rx ANC FB Headset"
 #define SND_USE_CASE_DEV_PROXY_RX_SPEAKER_HEADSET "PROXY Rx Speaker Headset"
 #define SND_USE_CASE_DEV_PROXY_RX_SPEAKER_ANC_HEADSET "PROXY Rx Speaker ANC Headset"
 #define SND_USE_CASE_DEV_CAMCORDER_TX       "Camcorder Tx"
@@ -307,6 +311,7 @@ static card_mapping_t card_mapping_list[] = {
 #define SND_USE_CASE_DEV_VOC_HEADPHONE      "Voice Headphones"
 #define SND_USE_CASE_DEV_VOC_HEADSET        "Voice Headset"
 #define SND_USE_CASE_DEV_VOC_ANC_HEADSET    "Voice ANC Headset"
+#define SND_USE_CASE_DEV_VOC_ANC_FB_HEADSET    "Voice ANC FB Headset"
 #define SND_USE_CASE_DEV_VOC_SPEAKER        "Voice Speaker"
 #define SND_USE_CASE_DEV_VOC_LINE           "Voice Line"
 #define SND_USE_CASE_DEV_AANC_LINE          "AANC Line"

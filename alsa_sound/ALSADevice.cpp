@@ -246,6 +246,18 @@ static bool shouldUseHandsetAnc(int flags, int inChannels)
     return (flags & ANC_FLAG) && (inChannels == 1);
 }
 
+static bool shouldUseFBAnc(void)
+{
+  char prop_anc[128] = "feedforward";
+
+  property_get("persist.headset.anc.type", prop_anc, "0");
+  if (!strncmp("feedback", prop_anc, sizeof("feedback"))) {
+    ALOGD("FB ANC headset type enabled\n");
+    return true;
+  }
+  return false;
+}
+
 static int adjustFlagsForCsd(int flags, const char *rxDevice)
 {
     int adjustedFlags = flags;
@@ -1769,6 +1781,8 @@ char *ALSADevice::getUCMDeviceFromAcdbId(int acdb_id)
              return strdup(SND_USE_CASE_DEV_TTY_HEADSET_RX);
         case DEVICE_ANC_HEADSET_STEREO_RX_ACDB_ID:
              return strdup(SND_USE_CASE_DEV_ANC_HEADSET);
+        case DEVICE_ANC_FB_HEADSET_STEREO_RX_ACDB_ID:
+             return strdup(SND_USE_CASE_DEV_ANC_FB_HEADSET);
         default:
              return NULL;
      }
@@ -1837,7 +1851,11 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
         } else if ((devices & AudioSystem::DEVICE_OUT_PROXY) &&
                    ((devices & AudioSystem::DEVICE_OUT_ANC_HEADSET)||
                     (devices & AudioSystem::DEVICE_OUT_ANC_HEADPHONE)) ) {
-            return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_HEADSET);
+            if (shouldUseFBAnc()) {
+                return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_FB_HEADSET);
+            } else {
+                return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_HEADSET);
+            }
         } else if ((devices & AudioSystem::DEVICE_OUT_SPEAKER) &&
             ((devices & AudioSystem::DEVICE_OUT_ANC_HEADSET) ||
             (devices & AudioSystem::DEVICE_OUT_ANC_HEADPHONE))) {
@@ -1878,9 +1896,17 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
             if (mDevSettingsFlag & ANC_FLAG) {
                 if (mCallMode == AUDIO_MODE_IN_CALL ||
                     mCallMode == AUDIO_MODE_IN_COMMUNICATION) {
-                    return strdup(SND_USE_CASE_DEV_VOC_ANC_HEADSET); /* Voice ANC HEADSET RX */
+                    if (shouldUseFBAnc()) {
+                        return strdup(SND_USE_CASE_DEV_VOC_ANC_FB_HEADSET); /* Voice ANC FB HEADSET RX */
+                    } else {
+                        return strdup(SND_USE_CASE_DEV_VOC_ANC_HEADSET); /* Voice ANC HEADSET RX */
+                    }
                 } else {
-                    return strdup(SND_USE_CASE_DEV_ANC_HEADSET); /* ANC HEADSET RX */
+                    if (shouldUseFBAnc()) {
+                        return strdup(SND_USE_CASE_DEV_ANC_FB_HEADSET); /* ANC FB HEADSET RX */
+                    } else {
+                        return strdup(SND_USE_CASE_DEV_ANC_HEADSET); /* ANC HEADSET RX */
+                    }
                 }
             } else {
                 if (mCallMode == AUDIO_MODE_IN_CALL ||
@@ -1895,7 +1921,11 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
                    ((devices & AudioSystem::DEVICE_OUT_WIRED_HEADSET) ||
                     (devices & AudioSystem::DEVICE_OUT_WIRED_HEADPHONE))) {
             if (mDevSettingsFlag & ANC_FLAG) {
-                return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_HEADSET);
+                if (shouldUseFBAnc()) {
+                    return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_FB_HEADSET);
+                } else {
+                    return strdup(SND_USE_CASE_DEV_PROXY_RX_ANC_HEADSET);
+                }
             } else {
                 return strdup(SND_USE_CASE_DEV_PROXY_RX_HEADSET);
             }
@@ -1903,9 +1933,17 @@ char* ALSADevice::getUCMDevice(uint32_t devices, int input, char *rxDevice)
                    (devices & AudioSystem::DEVICE_OUT_ANC_HEADPHONE)) {
             if (mCallMode == AUDIO_MODE_IN_CALL ||
                 mCallMode == AUDIO_MODE_IN_COMMUNICATION) {
-                return strdup(SND_USE_CASE_DEV_VOC_ANC_HEADSET); /* Voice ANC HEADSET RX */
+                if (shouldUseFBAnc()) {
+                    return strdup(SND_USE_CASE_DEV_VOC_ANC_FB_HEADSET); /* Voice ANC FB HEADSET RX */
+                } else {
+                    return strdup(SND_USE_CASE_DEV_VOC_ANC_HEADSET); /* Voice ANC HEADSET RX */
+                }
             } else {
-                return strdup(SND_USE_CASE_DEV_ANC_HEADSET); /* ANC HEADSET RX */
+                if (shouldUseFBAnc()) {
+                    return strdup(SND_USE_CASE_DEV_ANC_FB_HEADSET); /* ANC FB HEADSET RX */
+                } else {
+                    return strdup(SND_USE_CASE_DEV_ANC_HEADSET); /* ANC HEADSET RX */
+                }
             }
 #endif
         } else if ((devices & AudioSystem::DEVICE_OUT_BLUETOOTH_SCO) ||
