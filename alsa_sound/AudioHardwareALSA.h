@@ -743,6 +743,7 @@ private:
     bool                mReachedEOS;
     bool                mSkipWrite;
     bool                mEosEventReceived;
+    int                 mSessionStatus;
     AudioHardwareALSA  *mParent;
     alsa_handle_t *     mAlsaHandle;
     ALSADevice *     mAlsaDevice;
