@@ -85,10 +85,12 @@ static uint32_t audio_device_conv_table[][HAL_API_REV_NUM] =
     { AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES, AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_HEADPHONES },
     { AudioSystem::DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER, AUDIO_DEVICE_OUT_BLUETOOTH_A2DP_SPEAKER },
     { AudioSystem::DEVICE_OUT_AUX_DIGITAL, AUDIO_DEVICE_OUT_AUX_DIGITAL },
+#ifdef QCOM_USBAUDIO_ENABLED
     { AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET, AUDIO_DEVICE_OUT_ANLG_DOCK_HEADSET },
     { AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET, AUDIO_DEVICE_OUT_DGTL_DOCK_HEADSET },
     { AudioSystem::DEVICE_OUT_USB_ACCESSORY, AUDIO_DEVICE_OUT_USB_ACCESSORY },
     { AudioSystem::DEVICE_OUT_USB_DEVICE, AUDIO_DEVICE_OUT_USB_DEVICE },
+#endif
 #ifdef QCOM_ANC_HEADSET_ENABLED
     { AudioSystem::DEVICE_OUT_ANC_HEADSET, AUDIO_DEVICE_OUT_ANC_HEADSET },
     { AudioSystem::DEVICE_OUT_ANC_HEADPHONE, AUDIO_DEVICE_OUT_ANC_HEADPHONE },
@@ -110,7 +112,9 @@ static uint32_t audio_device_conv_table[][HAL_API_REV_NUM] =
     { AudioSystem::DEVICE_IN_AUX_DIGITAL, AUDIO_DEVICE_IN_AUX_DIGITAL },
     { AudioSystem::DEVICE_IN_VOICE_CALL, AUDIO_DEVICE_IN_VOICE_CALL },
     { AudioSystem::DEVICE_IN_BACK_MIC, AUDIO_DEVICE_IN_BACK_MIC },
+#ifdef QCOM_USBAUDIO_ENABLED
     { AudioSystem::DEVICE_IN_ANLG_DOCK_HEADSET, AUDIO_DEVICE_IN_ANLG_DOCK_HEADSET },
+#endif
 #ifdef QCOM_ANC_HEADSET_ENABLED
     { AudioSystem::DEVICE_IN_ANC_HEADSET, AUDIO_DEVICE_IN_ANC_HEADSET },
 #endif
@@ -286,7 +290,7 @@ static int out_get_render_position(const struct audio_stream_out *stream,
         reinterpret_cast<const struct qcom_stream_out *>(stream);
     return out->qcom_out->getRenderPosition(dsp_frames);
 }
-
+#ifdef QCOM_TUNNEL_LPA_ENABLED
 static int out_set_observer(const struct audio_stream_out *stream,
                                    void *observer)
 {
@@ -338,6 +342,8 @@ static status_t out_stop(struct audio_stream_out *stream)
         reinterpret_cast<struct qcom_stream_out *>(stream);
     return out->qcom_out->stop();
 }
+#endif //QCOM_TUNNEL_LPA_ENABLED
+
 static int out_add_audio_effect(const struct audio_stream *stream, effect_handle_t effect)
 {
     return 0;
@@ -688,6 +694,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.write = out_write;
     out->stream.get_render_position = out_get_render_position;
     out->stream.get_next_write_timestamp = out_get_next_write_timestamp;
+#ifdef QCOM_TUNNEL_LPA_ENABLED
     out->stream.start = out_start;
     out->stream.pause = out_pause;
     out->stream.flush = out_flush;
@@ -695,7 +702,7 @@ static int adev_open_output_stream(struct audio_hw_device *dev,
     out->stream.set_observer = out_set_observer;
     out->stream.get_buffer_info = out_get_buffer_info;
     out->stream.is_buffer_available = out_is_buffer_available;
-
+#endif
     *stream_out = &out->stream;
     return 0;
 
