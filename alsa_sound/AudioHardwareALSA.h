@@ -41,6 +41,7 @@ extern "C" {
     #include <sound/asound.h>
     #include <sound/compress_params.h>
     #include <sound/compress_offload.h>
+    #include <sound/voice_params.h>
     #include "alsa_audio.h"
     #include "msm8960_use_cases.h"
 }
@@ -59,6 +60,8 @@ class AudioHardwareALSA;
  */
 #define ALSA_HARDWARE_MODULE_ID "alsa"
 #define ALSA_HARDWARE_NAME      "alsa"
+
+#define MAX(a,b) (((a)>(b))?(a):(b))
 
 #define MAX_SOUND_CARDS 4
 
@@ -120,6 +123,9 @@ class AudioHardwareALSA;
 #define FENS_KEY            "fens_enable"
 #define ST_KEY              "st_enable"
 #define INCALLMUSIC_KEY     "incall_music_enabled"
+#define VSID_KEY            "vsid"
+#define CALL_STATE_KEY      "call_state"
+
 
 #define ANC_FLAG        0x00000001
 #define DMIC_FLAG       0x00000002
@@ -325,10 +331,10 @@ static struct mDDPEndpParams {
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
                        };
 
-#define VOICE_SESSION_VSID   0x01
-#define VOLTE_SESSION_VSID   0x02
-#define VOICE2_SESSION_VSID  0x03
-#define ALL_SESSION_VSID     0x04
+#define VOICE_SESSION_VSID  0x10C01000
+#define VOICE2_SESSION_VSID 0x10DC1000
+#define VOLTE_SESSION_VSID  0x10C02000
+#define ALL_SESSION_VSID    0xFFFFFFFF
 
 static uint32_t FLUENCE_MODE_ENDFIRE   = 0;
 static uint32_t FLUENCE_MODE_BROADSIDE = 1;
@@ -346,16 +352,13 @@ enum {
     ADSP_UP_AFTER_SSR = 0x2,
 };
 
-enum audio_call_mode {
-    CS_INACTIVE   = 0x0,
-    CS_ACTIVE     = 0x1,
-    CS_HOLD       = 0x2,
-    CS_INACTIVE_SESSION2   = 0x0,
-    CS_ACTIVE_SESSION2     = 0x100,
-    CS_HOLD_SESSION2       = 0x200,
-    IMS_INACTIVE  = 0x0,
-    IMS_ACTIVE    = 0x10,
-    IMS_HOLD      = 0x20
+/* Call States */
+enum call_state {
+    CALL_INVALID,
+    CALL_INACTIVE,
+    CALL_ACTIVE,
+    CALL_HOLD,
+    CALL_LOCAL_HOLD
 };
 
 class AudioSessionOutALSA;
@@ -1062,6 +1065,13 @@ private:
     unsigned int mTunnelsUsed;
     char*        getTunnel(bool hifi);
     void         freeTunnel(char* useCase);
+    int          getmCallState(uint32_t vsid, enum call_state state);
+    bool         isAnyCallActive();
+    int*         getCallStateForVSID(uint32_t vsid);
+    char*        getUcmVerbForVSID(uint32_t vsid);
+    char*        getUcmModForVSID(uint32_t vsid);
+    alsa_handle_t* getALSADeviceHandleForVSID(uint32_t vsid);
+
 protected:
     virtual status_t    dump(int fd, const Vector<String16>& args);
     virtual uint32_t    getVoipMode(int format);
@@ -1082,15 +1092,9 @@ protected:
     void                startUsbRecordingIfNotStarted();
 #endif
     void                setInChannels(int device);
-
-    void                disableVoiceCall(char* verb, char* modifier, int mode, int device,
-                                         uint32_t vsid = 0);
-    void                enableVoiceCall(char* verb, char* modifier, int mode, int device,
-                                        uint32_t vsid = 0);
-    bool                isAnyCallActive();
-    bool                routeVoiceCall(int device, int newMode);
-    bool                routeVoLTECall(int device, int newMode);
-    bool                routeVoice2Call(int device, int newMode);
+    void                disableVoiceCall(int mode, int device, uint32_t vsid = 0);
+    void                enableVoiceCall(int mode, int device, uint32_t vsid = 0);
+    bool                routeCall(int device, int newMode, uint32_t vsid);
     friend class AudioSessionOutALSA;
     friend class AudioStreamOutALSA;
     friend class AudioStreamInALSA;
@@ -1121,10 +1125,11 @@ protected:
     uint32_t            mIncallMode;
 
     bool                mMicMute;
-    int mCSCallActive;
-    int mVolteCallActive;
-    int mVoice2CallActive;
+    int mVoiceCallState;
+    int mVolteCallState;
+    int mVoice2CallState;
     int mCallState;
+    uint32_t mVSID;
     int mIsFmActive;
     bool mBluetoothVGS;
     bool mFusion3Platform;
