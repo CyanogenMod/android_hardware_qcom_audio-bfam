@@ -59,6 +59,7 @@ struct pollfd pfdUsbRecording[2];
 #define PROXY_SUPPORTED_RATE_16000 16000
 #define PROXY_SUPPORTED_RATE_48000 48000
 #define AFE_PROXY_PERIOD_COUNT 32
+#define MAX_SOUND_CARDS 4
 //#define OUTPUT_PROXY_BUFFER_LOG
 //#define OUTPUT_RECORD_PROXY_BUFFER_LOG
 #ifdef OUTPUT_PROXY_BUFFER_LOG
@@ -90,7 +91,7 @@ AudioUsbALSA::AudioUsbALSA()
     musbPlaybackHandle  = NULL;
     mproxyPlaybackHandle = NULL;
 
-    mUsbSoundCard = 1;
+    mUsbSoundCard = -1;
     mProxySoundCard = 0;
 }
 
@@ -102,11 +103,61 @@ AudioUsbALSA::~AudioUsbALSA()
 
 void AudioUsbALSA::setProxySoundCard(int sndCardIndex)
 {
-    /* Proxy port and USB headset are related to two different sound cards */
-    if (sndCardIndex == mUsbSoundCard) {
-        mUsbSoundCard = mProxySoundCard;
-    }
+    /* Proxy port and USB headset are related to two different sound cards
+     *  USB soundcard will be chosen from the playback /recording thread
+     */
     mProxySoundCard = sndCardIndex;
+}
+
+status_t AudioUsbALSA::queryUSBSoundCards() {
+
+
+    FILE *fp;
+    status_t err = NO_ERROR;
+    struct mixer*  mixer = NULL;
+    char device[32];
+    struct snd_ctl_card_info soundCardInfo;
+    if(mUsbSoundCard != -1)
+         return OK;
+    if ((fp = fopen("/proc/asound/cards", "r")) == NULL) {
+        ALOGE("Cannot open /proc/asound/cards file to get sound card info");
+        err = NO_INIT;
+        return  err;
+    }
+
+    for (int i = 0; i < MAX_SOUND_CARDS; i++) {
+
+        snprintf(device, sizeof(device), "/dev/snd/controlC%u", i);
+
+        mixer = mixer_open(device);
+        if (!mixer) {
+             /* Check the next card */
+             continue;
+        }
+
+        memset(&soundCardInfo, 0, sizeof(soundCardInfo));
+        if (ioctl(mixer->fd, SNDRV_CTL_IOCTL_CARD_INFO, &soundCardInfo) >= 0) {
+            ALOGD("name %s", soundCardInfo.name);
+            ALOGD("driver %s", soundCardInfo.driver);
+            if (strstr((const char*)soundCardInfo.driver, "USB-Audio")) {
+                //Open usb config file and check for playback capabilities
+                err = getCap((char *)"Playback:", mchannelsPlayback, msampleRatePlayback, i);
+                if (err) {
+                   ALOGE("ERROR: Could not get playback capabilities from usb device = %d", i);
+                }
+                else {
+                    ALOGE("Device found with USB Playback capabilities = %d", i);
+                    mUsbSoundCard = i;
+                }
+            }
+        }
+        mixer_close(mixer);
+        mixer = NULL;
+        if(mUsbSoundCard != -1)
+            return err;
+    }
+
+    return NO_INIT;
 }
 
 int AudioUsbALSA::getnumOfRates(char *ratesStr){
@@ -124,10 +175,9 @@ int AudioUsbALSA::getnumOfRates(char *ratesStr){
     return size;
 }
 
-
-status_t AudioUsbALSA::getCap(char * type, int &channels, int &sampleRate)
+status_t AudioUsbALSA::getCap(char * type, int &channels, int &sampleRate, int cardId)
 {
-    ALOGD("getCap for %s",type);
+    ALOGD("getCap for %s, cardId = %d",type, cardId);
     long unsigned fileSize;
     FILE *fp;
     char *buffer;
@@ -141,7 +191,7 @@ status_t AudioUsbALSA::getCap(char * type, int &channels, int &sampleRate)
 
     memset(&st, 0x0, sizeof(struct stat));
     sampleRate = 0;
-    snprintf(path, sizeof(path), "/proc/asound/card%u/stream0", mUsbSoundCard);
+    snprintf(path, sizeof(path), "/proc/asound/card%u/stream0", cardId);
 
     fd = open(path, O_RDONLY);
     if (fd <0) {
@@ -302,6 +352,7 @@ void AudioUsbALSA::exitPlaybackThread(uint64_t writeVal)
         Mutex::Autolock autoLock(mLock);
         ALOGD("exitPlaybackThread, mproxypfdPlayback: %d", mproxypfdPlayback);
         mkillPlayBackThread = true;
+        mUsbSoundCard = -1;
         if ((mproxypfdPlayback != -1) && (musbpfdPlayback != -1)) {
             write(mproxypfdPlayback, &writeVal, sizeof(uint64_t));
             write(musbpfdPlayback, &writeVal, sizeof(uint64_t));
@@ -342,6 +393,7 @@ void AudioUsbALSA::exitRecordingThread(uint64_t writeVal)
     mkillRecordingThread = true;
     {
         Mutex::Autolock autoRecordLock(mRecordLock);
+        mUsbSoundCard = -1;
         if ((pfdProxyRecording[1].fd != -1) && (pfdUsbRecording[1].fd != -1)) {
             ALOGD("write to fd");
             write(pfdUsbRecording[1].fd, &writeVal, sizeof(uint64_t));
@@ -521,7 +573,14 @@ void AudioUsbALSA::RecordingThreadEntry() {
 
     {
         Mutex::Autolock autoRecordLock(mRecordLock);
-        err = getCap((char *)"Capture:", mchannelsCapture, msampleRateCapture);
+
+        err = queryUSBSoundCards();
+        if (err) {
+            ALOGE("ERROR: No valid USB sound card");
+            return;
+        }
+
+        err = getCap((char *)"Capture:", mchannelsCapture, msampleRateCapture, mUsbSoundCard);
         if (err) {
             ALOGE("ERROR: Could not get capture capabilities from usb device");
             return;
@@ -1036,8 +1095,13 @@ void AudioUsbALSA::PlaybackThreadEntry() {
 
     {
         Mutex::Autolock autoLock(mLock);
+        err = queryUSBSoundCards();
+        if (err) {
+            ALOGE("ERROR: No valid USB sound card");
+            return;
+        }
 
-        err = getCap((char *)"Playback:", mchannelsPlayback, msampleRatePlayback);
+        err = getCap((char *)"Playback:", mchannelsPlayback, msampleRatePlayback, mUsbSoundCard);
         if (err) {
             ALOGE("ERROR: Could not get playback capabilities from usb device");
             return;

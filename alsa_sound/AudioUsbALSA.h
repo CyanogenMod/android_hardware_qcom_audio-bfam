@@ -125,7 +125,7 @@ private:
 
     status_t closeDevice(pcm *handle);
 
-    status_t getCap(char * type, int &channels, int &sampleRate);
+    status_t getCap(char * type, int &channels, int &sampleRate, int cardId);
     int         getnumOfRates(char *rateStr);
     int         mchannelsPlayback;
     int         msampleRatePlayback;
@@ -147,6 +147,7 @@ public:
     }
 
     void setProxySoundCard(int soundCard);
+    status_t queryUSBSoundCards();
 
     //Playback
     void startPlayback();
