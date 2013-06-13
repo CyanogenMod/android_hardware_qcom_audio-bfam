@@ -1001,11 +1001,13 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
         }
         param.add(key, value);
     }
-
     key = String8("tunneled-input-formats");
     if ( param.get(key,value) == NO_ERROR ) {
-        ALOGD("Add tunnel AWB to audio parameter");
-        param.addInt(String8("AWB"), true );
+        int newMode = mode();
+        if(newMode != AUDIO_MODE_IN_COMMUNICATION && newMode != AUDIO_MODE_IN_CALL){
+            ALOGD("Add tunnel AWB to audio parameter");
+            param.addInt(String8("AWB"), true );
+        }
     }
 
     key = String8(AudioParameter::keyRouting);
