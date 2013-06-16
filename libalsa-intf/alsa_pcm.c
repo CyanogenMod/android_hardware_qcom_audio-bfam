@@ -1050,3 +1050,54 @@ int pcm_set_channel_map(struct pcm *pcm, struct mixer *mixer,
         free(set_values);
     return 0;
 }
+
+int pcm_set_volume(struct pcm *pcm, struct mixer *mixer, int volume)
+{
+    struct mixer_ctl *ctl;
+    char control_name[44]; // max length of name is 44 as defined
+    char device_num[STRING_LENGTH_OF_INTEGER+1];
+    char **set_values;
+    int i, rc=0;
+
+    ALOGV("pcm_set_volume");
+    if(pcm == NULL)
+        return -EINVAL;
+    set_values = (char**)malloc(sizeof(char*));
+    if(set_values) {
+        set_values[0] = (char*)malloc(STRING_LENGTH_OF_INTEGER*sizeof(char));
+        if(set_values[0]) {
+            snprintf(set_values[0], STRING_LENGTH_OF_INTEGER, "%d",volume);
+        } else {
+            ALOGE("memory allocation for set volume failed");
+            rc = -ENOMEM;
+            goto set_volume_done;
+        }
+    } else {
+        ALOGE("memory allocation for set volume failed");
+        return -ENOMEM;
+    }
+    /* The k-control name in the driver is updated based on the device num
+       in each platform driver.
+       Ex: pcm device 0 - hw:0, 0 will have the playback volume's k-control
+           defined as Playback 0 Volume"
+       Hence, update the k-control accordingly
+    */
+    strlcpy(control_name, "Playback ", sizeof(control_name));
+    snprintf(device_num, sizeof(device_num), "%d", pcm->device_no);
+    strlcat(control_name, device_num, sizeof(control_name));
+    strlcat(control_name, " Volume", sizeof(control_name));
+    ALOGV("pcm_set_volume: control name:%s", control_name);
+    ctl = mixer_get_control(mixer, control_name, 0);
+    if(ctl == NULL) {
+        ALOGE("Could not get the mixer control\n");
+        rc = -EINVAL;
+    } else {
+        mixer_ctl_set_value(ctl, 1, set_values);
+    }
+set_volume_done:
+    if(set_values[0])
+        free(set_values[0]);
+    if(set_values)
+        free(set_values);
+    return rc;
+}

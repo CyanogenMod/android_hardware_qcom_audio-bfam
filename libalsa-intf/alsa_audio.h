@@ -73,6 +73,7 @@ struct pcm {
 #define PCM_PERIOD_SZ_MASK (0xF << PCM_PERIOD_SZ_SHIFT)
 
 #define TIMEOUT_INFINITE  -1
+#define STRING_LENGTH_OF_INTEGER 12
 
 /* Acquire/release a pcm channel.
  * Returns non-zero on error
@@ -150,6 +151,7 @@ int pcm_prepare(struct pcm *pcm);
 long pcm_avail(struct pcm *pcm);
 int pcm_set_channel_map(struct pcm *pcm, struct mixer *mixer,
                         int max_channels, char *chmap);
+int pcm_set_volume(struct pcm *pcm, struct mixer *mixer, int volume);
 
 /* Returns a human readable reason for the last error. */
 const char *pcm_error(struct pcm *pcm);

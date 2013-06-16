@@ -203,17 +203,17 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
 #endif
 
     ALOGD("Setting stream volume to %d (available range is 0 to 0x2000)\n", mStreamVol);
-    if(mAlsaHandle) {
+    if(mAlsaHandle && mAlsaHandle->handle) {
         if(!strcmp(mAlsaHandle->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER) ||
            !strcmp(mAlsaHandle->useCase, SND_USE_CASE_MOD_PLAY_LPA)) {
             ALOGD("setLpaVolume(%u)\n", mStreamVol);
             ALOGD("Setting LPA volume to %d (available range is 0 to 100)\n", mStreamVol);
-            mAlsaHandle->module->setLpaVolume(mStreamVol);
+            mAlsaHandle->module->setLpaVolume(mAlsaHandle, mStreamVol);
             return status;
         } else if (isTunnelUseCase(mAlsaHandle->useCase)) {
             ALOGD("setCompressedVolume(%u)\n", mStreamVol);
             ALOGD("Setting Compressed volume to %d (available range is 0 to 100)\n", mStreamVol);
-            mAlsaHandle->module->setCompressedVolume(mStreamVol);
+            mAlsaHandle->module->setCompressedVolume(mAlsaHandle, mStreamVol);
             return status;
         }
     }
