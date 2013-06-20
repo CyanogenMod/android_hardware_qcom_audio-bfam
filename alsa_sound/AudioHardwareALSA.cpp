@@ -425,24 +425,24 @@ char* AudioHardwareALSA::getTunnel(bool hifi) {
 }
 void AudioHardwareALSA::freeTunnel(char* useCase) {
     if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-        strlen(SND_USE_CASE_MOD_PLAY_TUNNEL)) ||
+                MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL)) ||
         !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-        strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) {
+                 MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL))) {
         mTunnelsUsed &= ~0x1;
     } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2,
-              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL2)) ||
+                       MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL2)) ||
               !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2,
-              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL2))) {
+                       MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL2))) {
         mTunnelsUsed &= ~0x2;
     } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3,
-              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL3)) ||
+                       MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL3)) ||
               !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3,
-              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL3))) {
+                       MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL3))) {
         mTunnelsUsed &= ~0x4;
     } else if(!strncmp(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4,
-              strlen(SND_USE_CASE_MOD_PLAY_TUNNEL4)) ||
+                       MAX_LEN(useCase, SND_USE_CASE_MOD_PLAY_TUNNEL4)) ||
               !strncmp(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4,
-              strlen(SND_USE_CASE_VERB_HIFI_TUNNEL4))) {
+                       MAX_LEN(useCase, SND_USE_CASE_VERB_HIFI_TUNNEL4))) {
         mTunnelsUsed &= ~0x8;
     }
     ALOGV("Tunnel freed: %s", useCase);
@@ -3243,43 +3243,43 @@ uint32_t AudioHardwareALSA::useCaseStringToEnum(const char *usecase)
                     strlen(SND_USE_CASE_MOD_PLAY_LPA)))) {
        activeUsecase = USECASE_HIFI_LOW_POWER;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL,
-                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL))) ||
               (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL,
-                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL)))) {
        activeUsecase = USECASE_HIFI_TUNNEL;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL2,
-                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL2))) ||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL2))) ||
               (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL2,
-                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL2)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL2)))) {
        activeUsecase = USECASE_HIFI_TUNNEL2;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL3,
-                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL3))) ||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL3))) ||
               (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL3,
-                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL3)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL3)))) {
        activeUsecase = USECASE_HIFI_TUNNEL3;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL4,
-                           strlen(SND_USE_CASE_VERB_HIFI_TUNNEL4))) ||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI_TUNNEL4))) ||
               (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL4,
-                           strlen(SND_USE_CASE_MOD_PLAY_TUNNEL4)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_TUNNEL4)))) {
        activeUsecase = USECASE_HIFI_TUNNEL4;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC,
-                           strlen(SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC )))||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_MUSIC))) ||
                (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC,
-                           strlen(SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_LOWLATENCY_MUSIC)))) {
        activeUsecase = USECASE_HIFI_LOWLATENCY;
    } else if ((!strncmp(usecase, SND_USE_CASE_VERB_DIGITAL_RADIO,
-                           strlen(SND_USE_CASE_VERB_DIGITAL_RADIO))) ||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_DIGITAL_RADIO))) ||
                (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_FM,
-                           strlen(SND_USE_CASE_MOD_PLAY_FM)))||
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_FM))) ||
                (!strncmp(usecase, SND_USE_CASE_VERB_FM_REC,
-                           strlen(SND_USE_CASE_VERB_FM_REC)))||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_FM_REC))) ||
                (!strncmp(usecase, SND_USE_CASE_MOD_CAPTURE_FM,
-                           strlen(SND_USE_CASE_MOD_CAPTURE_FM)))){
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_CAPTURE_FM)))){
        activeUsecase = USECASE_FM;
     } else if ((!strncmp(usecase, SND_USE_CASE_VERB_HIFI,
-                           strlen(SND_USE_CASE_VERB_HIFI)))||
+                           MAX_LEN(usecase, SND_USE_CASE_VERB_HIFI)))||
                (!strncmp(usecase, SND_USE_CASE_MOD_PLAY_MUSIC,
-                           strlen(SND_USE_CASE_MOD_PLAY_MUSIC)))) {
+                           MAX_LEN(usecase, SND_USE_CASE_MOD_PLAY_MUSIC)))) {
        activeUsecase = USECASE_HIFI;
     }
     return activeUsecase;
