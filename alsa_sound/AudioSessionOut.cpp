@@ -184,7 +184,7 @@ status_t AudioSessionOutALSA::setVolume(float left, float right)
     float volume;
     status_t status = NO_ERROR;
 
-    if(mSessionStatus == -1){
+    if(mSessionStatus != 0){
         return INVALID_OPERATION;
     }
 
@@ -301,7 +301,7 @@ ssize_t AudioSessionOutALSA::write(const void *buffer, size_t bytes)
     mEosEventReceived = false;
     mReachedEOS = false;
 
-    if(mSessionStatus == -1){
+    if(mSessionStatus != 0){
         return INVALID_OPERATION;
     }
 
@@ -570,7 +570,7 @@ status_t AudioSessionOutALSA::start()
     //mEosEventReceived = false;
     //mReachedEOS = false;
     //mSkipEOS = false;
-    if(mSessionStatus == -1){
+    if(mSessionStatus != 0){
         return INVALID_OPERATION;
     }
 
@@ -748,8 +748,6 @@ status_t AudioSessionOutALSA::stop()
 status_t AudioSessionOutALSA::standby()
 {
     Mutex::Autolock autoLock(mParent->mLock);
-    // At this point, all the buffers with the driver should be
-    // flushed.
     status_t err = NO_ERROR;
     flush();
 
@@ -779,7 +777,19 @@ status_t AudioSessionOutALSA::standby()
         mParent->closeUsbPlaybackIfNothingActive();
     }
 #endif
+    /*
+    Acquire draining lock so that we can be sure drain is done
+    Flush will cause drain to complete, but we have to wait for it
+    */
+    // At this point, all the buffers with the driver should be
+    // flushed.
+    Mutex::Autolock autoLock1(mDrainingLock);
     mAlsaHandle->module->standby(mAlsaHandle);
+    /*
+        Since ALSA Handle is closed, make sure no operations on
+        ALSA handle happen after this
+    */
+    mSessionStatus = -1;
 
 
     if (mParent->mRouteAudioToExtOut) {
@@ -1066,7 +1076,7 @@ void AudioSessionOutALSA::reset() {
 #endif
 
     if(mAlsaHandle) {
-        ALOGV("closeDevice mAlsaHandle");
+        ALOGD("closeDevice mAlsaHandle");
         closeDevice(mAlsaHandle);
         mAlsaHandle = NULL;
     }
@@ -1109,6 +1119,18 @@ status_t AudioSessionOutALSA::drainAndPostEOS_l()
 
     if (mEosEventReceived) {
         ALOGD("drainAndPostEOS called after mEosEventReceived");
+        return INVALID_OPERATION;
+    }
+
+    /*
+    To indicate to other threads that we are draining
+    and we have to wait till this is done. And take this
+    lock before unlocking mLock so that ::standby() will not
+    be able to acquire the mDrainingLock
+    */
+    Mutex::Autolock autoLock(mDrainingLock);
+    if (mSessionStatus != 0) {
+        ALOGE("ALSA Handle closed already");
         return INVALID_OPERATION;
     }
 
