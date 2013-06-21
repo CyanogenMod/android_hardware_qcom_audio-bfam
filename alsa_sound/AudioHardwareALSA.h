@@ -224,6 +224,8 @@ static int USBRECBIT_FM = (1 << 3);
 
 #define SOUND_CARD_SLEEP_RETRY 15  /*  Will check 5 times before continuing */
 #define SOUND_CARD_SLEEP_WAIT 1000 /* 100 ms */
+
+#ifdef QCOM_DS1_DOLBY_DDP
 #define PARAM_ID_MAX_OUTPUT_CHANNELS    0x00010DE2
 #define PARAM_ID_CTL_RUNNING_MODE       0x0
 #define PARAM_ID_CTL_ERROR_CONCEAL      0x00010DE3
@@ -308,28 +310,37 @@ static struct mDDPEndpParams {
           {AudioSystem::DEVICE_OUT_DGTL_DOCK_HEADSET, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+#ifdef QCOM_USBAUDIO_ENABLED
           {AudioSystem::DEVICE_OUT_USB_ACCESSORY, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
           {AudioSystem::DEVICE_OUT_USB_DEVICE, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+#endif
+#ifdef QCOM_FM_ENABLED
           {AudioSystem::DEVICE_OUT_FM, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
           {AudioSystem::DEVICE_OUT_FM_TX, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+#endif
+#ifdef QCOM_ANC_HEADSET_ENABLED
           {AudioSystem::DEVICE_OUT_ANC_HEADSET, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
           {AudioSystem::DEVICE_OUT_ANC_HEADPHONE, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+#endif
+#ifdef QCOM_PROXY_DEVICE_ENABLED
           {AudioSystem::DEVICE_OUT_PROXY, 2,
               {8, 0, 0, 0, 0, 0, 0, 21, 1, 6, 0, 0, 0, 0, 0, 0, 0},
               {1, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0} },
+#endif
                        };
+#endif
 
 #define VOICE_SESSION_VSID  0x10C01000
 #define VOICE2_SESSION_VSID 0x10DC1000
@@ -361,6 +372,29 @@ enum call_state {
     CALL_LOCAL_HOLD
 };
 
+//Audio parameter definitions
+
+/* Query handle fm parameter*/
+#define AUDIO_PARAMETER_KEY_HANDLE_FM "handle_fm"
+
+/* Query voip flag */
+#define AUDIO_PARAMETER_KEY_VOIP_CHECK "voip_flag"
+
+/* Query Fluence type */
+#define AUDIO_PARAMETER_KEY_FLUENCE_TYPE "fluence"
+
+/* Query if surround sound recording is supported */
+#define AUDIO_PARAMETER_KEY_SSR "ssr"
+
+/* Query if a2dp  is supported */
+#define AUDIO_PARAMETER_KEY_HANDLE_A2DP_DEVICE "isA2dpDeviceSupported"
+
+/* Query ADSP Status */
+#define AUDIO_PARAMETER_KEY_ADSP_STATUS "ADSP_STATUS"
+
+/* Query if Proxy can be Opend */
+#define AUDIO_CAN_OPEN_PROXY "can_open_proxy"
+
 class AudioSessionOutALSA;
 struct alsa_handle_t {
     ALSADevice*         module;
@@ -377,7 +411,9 @@ struct alsa_handle_t {
     bool                isFastOutput;
     struct pcm *        rxHandle;
     snd_use_case_mgr_t  *ucMgr;
+#ifdef QCOM_TUNNEL_LPA_ENABLED
     AudioSessionOutALSA *session;
+#endif
 };
 
 struct output_metadata_handle_t {
@@ -429,7 +465,7 @@ public:
     status_t setChannelMap(alsa_handle_t *handle, int maxChannels);
     void     enableSlowTalk(bool flag, uint32_t vsid = 0);
     status_t setDMID();
-#ifdef DOLBY_DAP
+#ifdef QCOM_DS1_DOLBY_DAP
     status_t setEndpDevice(int value);
 #endif
     void     setVocRecMode(uint8_t mode);
@@ -663,7 +699,7 @@ protected:
 };
 
 // ----------------------------------------------------------------------------
-
+#ifdef QCOM_TUNNEL_LPA_ENABLED
 class AudioSessionOutALSA : public AudioStreamOut
 {
 public:
@@ -811,7 +847,7 @@ private:
 public:
     bool mRouteAudioToA2dp;
 };
-
+#endif //QCOM_TUNNEL_LPA_ENABLED
 
 class AudioStreamInALSA : public AudioStreamIn, public ALSAStreamOps
 {

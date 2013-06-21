@@ -396,6 +396,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
           codec_id = get_compressed_format("MP3");
           ALOGD("### MP3 CODEC codec_id %d",codec_id);
         }
+#ifdef QCOM_DS1_DOLBY_DDP
         else if (handle->format == AUDIO_FORMAT_EAC3) {
           int length;
           codec_id = get_compressed_format("EAC3");
@@ -409,7 +410,7 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
           } else {
               compr_params.codec.options.ddp.params_length = 0;
           }
-#ifndef DOLBY_DAP
+#ifndef QCOM_DS1_DOLBY_DAP
           setDMID();
 #endif
         }
@@ -426,10 +427,11 @@ status_t ALSADevice::setHardwareParams(alsa_handle_t *handle)
           } else {
               compr_params.codec.options.ddp.params_length = 0;
           }
-#ifndef DOLBY_DAP
+#ifndef QCOM_DS1_DOLBY_DAP
           setDMID();
 #endif
         }
+#endif
         else {
             return UNKNOWN_ERROR;
         }
@@ -1613,7 +1615,7 @@ status_t ALSADevice::route(alsa_handle_t *handle, uint32_t devices, int mode)
 
     ALOGD("route: devices 0x%x in mode %d", devices, mode);
     mCallMode = mode;
-#ifdef DOLBY_DAP
+#ifdef QCOM_DS1_DOLBY_DAP
     if (devices) {
         setEndpDevice(devices);
         setDMID();
@@ -2563,7 +2565,7 @@ status_t ALSADevice::setDMID()
     return (err < 0) ? BAD_VALUE : NO_ERROR;
 }
 
-#ifdef DOLBY_DAP
+#ifdef QCOM_DS1_DOLBY_DAP
 status_t ALSADevice::setEndpDevice(int value)
 {
     ALOGD("setEndpDevice: device %d", value);
@@ -3095,6 +3097,7 @@ status_t ALSADevice::getEDIDData(char *hdmiEDIDData)
     return err;
 }
 
+#ifdef QCOM_DS1_DOLBY_DDP
 status_t ALSADevice::updateDDPEndpTable(int device, int dev_ch_cap,
                                         int param_id, int param_val)
 {
@@ -3176,6 +3179,7 @@ status_t ALSADevice::setDDPEndpParams(alsa_handle_t *handle,
     }
     return NO_ERROR;
 }
+#endif
 
 #ifdef SEPERATED_AUDIO_INPUT
 void s_setInput(int input)

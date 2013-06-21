@@ -174,9 +174,11 @@ AudioHardwareALSA::AudioHardwareALSA() :
 
     cardInfo = mALSADevice->getSoundCardInfo();
 
+#ifdef QCOM_USBAUDIO_ENABLED
     if (mAudioUsbALSA) {
         mAudioUsbALSA->setProxySoundCard(cardInfo->card);
     }
+#endif
 
     if (!strcmp((const char*)cardInfo->name, "msm8974-taiko-mtp-snd-card")) {
         snd_use_case_mgr_create(&mUcMgr, "snd_soc_msm_Taiko", cardInfo->card);
@@ -279,9 +281,9 @@ AudioHardwareALSA::AudioHardwareALSA() :
     AudioParameter param;
     String8 key;
     String8 value;
-
+#ifdef QCOM_FLUENCE_ENABLED
     //Set default AudioParameter for fluencetype
-    key  = String8(AudioParameter::keyFluenceType);
+    key  = String8(AUDIO_PARAMETER_KEY_FLUENCE_TYPE);
     property_get("ro.qc.sdk.audio.fluencetype",mFluenceKey,"0");
     if (0 == strncmp("fluencepro", mFluenceKey, sizeof("fluencepro"))) {
         mDevSettingsFlag |= QMIC_FLAG;
@@ -301,17 +303,20 @@ AudioHardwareALSA::AudioHardwareALSA() :
     }
     param.add(key, value);
     mALSADevice->setFlags(mDevSettingsFlag);
+#endif
 
+#ifdef QCOM_SSR_ENABLED
     //set default AudioParameters for surround sound recording
     char ssr_enabled[6] = "false";
     property_get("ro.qc.sdk.audio.ssr",ssr_enabled,"0");
     if (!strncmp("true", ssr_enabled, 4)) {
         ALOGD("surround sound recording is supported");
-        param.add(String8(AudioParameter::keySSR), String8("true"));
+        param.add(String8(AUDIO_PARAMETER_KEY_SSR), String8("true"));
     } else {
         ALOGD("surround sound recording is not supported");
-        param.add(String8(AudioParameter::keySSR), String8("false"));
+        param.add(String8(AUDIO_PARAMETER_KEY_SSR), String8("false"));
     }
+#endif
 
     mStatus = OK;
     char spkr_prot_enabled[80] = "false";
@@ -545,6 +550,7 @@ status_t AudioHardwareALSA::setMode(int mode)
     return status;
 }
 
+#ifdef QCOM_DS1_DOLBY_DDP
 void AudioHardwareALSA::parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParameter *param)
 {
     String8 key;
@@ -596,6 +602,7 @@ void AudioHardwareALSA::parseDDPParams(int ddp_dev, int ddp_ch_cap, AudioParamet
         setDDPEndpParams(ddp_dev);
     }
 }
+#endif
 
 bool AudioHardwareALSA::isAnyCallActive() {
 
@@ -632,7 +639,8 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
 
     ALOGV("%s() ,%s", __func__, keyValuePairs.string());
 
-    key = String8(AudioParameter::keyADSPStatus);
+#ifdef QCOM_ADSP_SSR_ENABLED
+    key = String8(AUDIO_PARAMETER_KEY_ADSP_STATUS);
     if (param.get(key, value) == NO_ERROR) {
     #ifdef QCOM_LISTEN_FEATURE_ENABLE
         if (mListenHw) {
@@ -655,6 +663,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
            return status;
        }
     }
+#endif
 
     key = String8(TTY_MODE_KEY);
     if (param.get(key, value) == NO_ERROR) {
@@ -675,8 +684,8 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         }
         doRouting(0);
     }
-
-    key = String8(AudioParameter::keyFluenceType);
+#ifdef QCOM_FLUENCE_ENABLED
+    key = String8(AUDIO_PARAMETER_KEY_FLUENCE_TYPE);
     if (param.get(key, value) == NO_ERROR) {
         if (value == "quadmic") {
             //Allow changing fluence type to "quadmic" only when fluence type is fluencepro
@@ -701,6 +710,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         mALSADevice->setFlags(mDevSettingsFlag);
         doRouting(0);
     }
+#endif
 
 #ifdef QCOM_CSDCLIENT_ENABLED
     if (mFusion3Platform) {
@@ -725,6 +735,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     }
 #endif
 
+#ifdef QCOM_ANC_HEADSET_ENABLED
     key = String8(ANC_KEY);
     if (param.get(key, value) == NO_ERROR) {
         if (value == "true") {
@@ -737,6 +748,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         mALSADevice->setFlags(mDevSettingsFlag);
         doRouting(0);
     }
+#endif
 
     key = String8(AudioParameter::keyRouting);
     if (param.getInt(key, device) == NO_ERROR) {
@@ -851,7 +863,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     }
 
 #ifdef QCOM_FM_ENABLED
-    key = String8(AudioParameter::keyHandleFm);
+    key = String8(AUDIO_PARAMETER_KEY_HANDLE_FM);
     if (param.getInt(key, device) == NO_ERROR) {
         // Ignore if device is 0
         if(device) {
@@ -887,7 +899,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         }
         param.remove(key);
     }
-
+#ifdef QCOM_DS1_DOLBY_DDP
     key = String8("ddp_device");
     if (param.getInt(key, ddp_dev) == NO_ERROR) {
         param.remove(key);
@@ -897,6 +909,7 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
         param.remove(key);
         parseDDPParams(ddp_dev, ddp_ch_cap, &param);
     }
+#endif
 
 #ifdef QCOM_LISTEN_FEATURE_ENABLE
     key = String8(AUDIO_PARAMETER_KEY_MAD);
@@ -917,15 +930,16 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
 {
     AudioParameter param = AudioParameter(keys);
     String8 value;
+    String8 key;
     int device;
-
-    String8 key = String8(DUALMIC_KEY);
+#ifdef QCOM_FLUENCE_ENABLED
+    key = String8(DUALMIC_KEY);
     if (param.get(key, value) == NO_ERROR) {
         value = String8("false");
         param.add(key, value);
     }
 
-    key = String8(AudioParameter::keyFluenceType);
+    key = String8(AUDIO_PARAMETER_KEY_FLUENCE_TYPE);
     if (param.get(key, value) == NO_ERROR) {
     if ((mDevSettingsFlag & QMIC_FLAG) &&
                                (mDevSettingsFlag & ~DMIC_FLAG))
@@ -938,10 +952,11 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
             value = String8("none");
         param.add(key, value);
     }
+#endif
 
 #ifdef QCOM_FM_ENABLED
 
-    key = String8(AudioParameter::keyHandleA2dpDevice);
+    key = String8(AUDIO_PARAMETER_KEY_HANDLE_A2DP_DEVICE);
     if ( param.get(key,value) == NO_ERROR ) {
         param.add(key, String8("true"));
     }
@@ -960,7 +975,7 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
            param.addInt(String8("isVGS"), true);
     }
 #ifdef QCOM_SSR_ENABLED
-    key = String8(AudioParameter::keySSR);
+    key = String8(AUDIO_PARAMETER_KEY_SSR);
     if (param.get(key, value) == NO_ERROR) {
         char ssr_enabled[6] = "false";
         property_get("ro.qc.sdk.audio.ssr",ssr_enabled,"0");
@@ -998,11 +1013,12 @@ String8 AudioHardwareALSA::getParameters(const String8& keys)
         param.addInt(key, mCurDevice);
     }
 
-    key = String8(AudioParameter::keyCanOpenProxy);
+#ifdef QCOM_PROXY_DEVICE_ENABLED
+    key = String8(AUDIO_CAN_OPEN_PROXY);
     if(param.get(key, value) == NO_ERROR) {
         param.addInt(key, mCanOpenProxy);
     }
-
+#endif
 
     key = String8("snd_card_name");
     if (param.get(key, value) == NO_ERROR) {
@@ -1112,9 +1128,10 @@ status_t AudioHardwareALSA::doRouting(int device)
     ALOGD("device = 0x%x,mCurDevice 0x%x", device, mCurDevice);
     if (device == 0)
         device = mCurDevice;
-
+#ifdef QCOM_DS1_DOLBY_DDP
     if (device != mCurDevice)
         setDDPEndpParams(device);
+#endif
 
     ALOGV("doRouting: device %#x newMode %d mVoiceCallState %x \
            mVolteCallActive %x mVoice2CallActive %x mIsFmActive %x",
@@ -1587,9 +1604,12 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
             if(devices == AUDIO_DEVICE_OUT_AUX_DIGITAL){
                 alsa_handle.sampleRate = info.AudioBlocksArray[info.nAudioBlocks-1].nSamplingFreq;
                 *sampleRate = alsa_handle.sampleRate;
-            }else if (devices & AudioSystem::DEVICE_OUT_PROXY) {
+            }
+#ifdef QCOM_PROXY_DEVICE_ENABLED
+            else if (devices & AudioSystem::DEVICE_OUT_PROXY) {
                 *sampleRate = 48000;
             }
+#endif
         } else {
             alsa_handle.sampleRate = *sampleRate;
         }
@@ -1630,7 +1650,9 @@ AudioHardwareALSA::openOutputStream(uint32_t devices,
       alsa_handle.latency = PLAYBACK_LATENCY;
       alsa_handle.rxHandle = 0;
       alsa_handle.ucMgr = mUcMgr;
+#ifdef QCOM_TUNNEL_LPA_ENABLED
       alsa_handle.session = NULL;
+#endif
       alsa_handle.isFastOutput = false;
 
       char *use_case;
@@ -2253,19 +2275,21 @@ size_t AudioHardwareALSA::getInputBufferSize(uint32_t sampleRate, int format, in
                  * Not used for tunnel amr-wb encoding
                  * as it works on 1 frame worth 61 bytes
                  */
+        format == AUDIO_FORMAT_AMR_NB
+        || format == AUDIO_FORMAT_AMR_WB
 #ifdef QCOM_AUDIO_FORMAT_ENABLED
-        format == AUDIO_FORMAT_EVRC
+        || format == AUDIO_FORMAT_EVRC
         || format == AUDIO_FORMAT_EVRCB
         || format == AUDIO_FORMAT_EVRCWB
 #endif
-        || format == AUDIO_FORMAT_AMR_NB
-        || format == AUDIO_FORMAT_AMR_WB) {
+    ) {
         bufferSize = (sampleRate * channelCount * 20 * sizeof(int16_t)) / 1000;
         ALOGD("getInputBufferSize AMRWB/AMRNB/EVRC = %d", bufferSize);
     } else {
         bufferSize = DEFAULT_IN_BUFFER_SIZE * channelCount;
         ALOGE("getInputBufferSize bad format: %x use default input buffersize:%d", format, bufferSize);
     }
+    ALOGD("getInputBufferSize returns(%d)for:sampleRate(%d)+format(%d)+channelCount(%d)",bufferSize,sampleRate,format,channelCount);
     return bufferSize;
 }
 
@@ -2708,6 +2732,7 @@ bool AudioHardwareALSA::routeCall(int device, int newMode, uint32_t vsid)
     return isRouted;
 }
 
+#ifdef QCOM_TUNNEL_LPA_ENABLED
 void AudioHardwareALSA::pauseIfUseCaseTunnelOrLPA() {
     for (ALSAHandleList::iterator it = mDeviceList.begin();
            it != mDeviceList.end(); it++) {
@@ -2733,6 +2758,7 @@ void AudioHardwareALSA::resumeIfUseCaseTunnelOrLPA() {
         }
     }
 }
+#endif
 
 status_t AudioHardwareALSA::startPlaybackOnExtOut(uint32_t activeUsecase) {
 
@@ -2879,6 +2905,7 @@ status_t AudioHardwareALSA::openExtOutput(int device) {
         if(!mExtOutStream) {
             mExtOutStream = mA2dpStream;
         }
+#ifdef QCOM_USBAUDIO_ENABLED
     } else if (device & AudioSystem::DEVICE_OUT_ALL_USB) {
         err= openUsbOutput();
         if(err) {
@@ -2888,6 +2915,7 @@ status_t AudioHardwareALSA::openExtOutput(int device) {
         if(!mExtOutStream) {
             mExtOutStream = mUsbStream;
         }
+#endif
     }
     return err;
 }
@@ -3303,6 +3331,7 @@ bool  AudioHardwareALSA::suspendPlaybackOnExtOut_l(uint32_t activeUsecase) {
     return NO_ERROR;
 }
 
+#ifdef QCOM_DS1_DOLBY_DDP
 status_t AudioHardwareALSA::setDDPEndpParams(int device)
 {
     ALOGV("%s E", __func__);
@@ -3340,5 +3369,6 @@ status_t AudioHardwareALSA::setDDPEndpParams(int device)
     }
     return NO_ERROR;
 }
+#endif
 
 }       // namespace android_audio_legacy

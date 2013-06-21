@@ -239,7 +239,7 @@ status_t ALSAStreamOps::setParameters(const String8& keyValuePairs)
     }
 #ifdef QCOM_FM_ENABLED
     else {
-        key = String8(AudioParameter::keyHandleFm);
+        key = String8(AUDIO_PARAMETER_KEY_HANDLE_FM);
         if (param.getInt(key, device) == NO_ERROR) {
             ALOGD("setParameters(): handleFm with device %d", device);
             if(device) {
@@ -297,24 +297,30 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
                             case 6:
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_5POINT1);
                                 value += append + String8("|");
+#ifdef QCOM_AUDIO_MULTICHANNELS_ENABLED
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_PENTA);
                                 value += append + String8("|");
                                 ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_2POINT1);
                                 value += append + String8("|");
+#endif
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_QUAD);
                                 value += append;
                                 break;
                             case 8:
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_7POINT1);
                                 value += append + String8("|");
+#ifdef QCOM_AUDIO_MULTICHANNELS_ENABLED
                                 ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_6POINT1);
                                 value += append + String8("|");
+#endif
                                 ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_5POINT1);
                                 value += append + String8("|");
+#ifdef QCOM_AUDIO_MULTICHANNELS_ENABLED
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_PENTA);
                                 value += append + String8("|");
                                 ENUM_TO_STRING(append,AUDIO_CHANNEL_OUT_2POINT1);
                                 value += append + String8("|");
+#endif
                                 ENUM_TO_STRING(append, AUDIO_CHANNEL_OUT_QUAD);
                                 value += append;
                                 break;
@@ -360,6 +366,7 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
                 ALOGE("Failed to get HDMI sink capabilities");
             }
 #endif
+#ifdef QCOM_WFD_ENABLED
             if((mDevices &  AudioSystem::DEVICE_OUT_PROXY)) {
                int32_t channelCount, sampleRate;
                   ALOGE("Proxy channel count");
@@ -376,6 +383,7 @@ String8 ALSAStreamOps::getParameters(const String8& keys)
                          break;
                  }
             }
+#endif
         }
         param.add(key, value);
     }
