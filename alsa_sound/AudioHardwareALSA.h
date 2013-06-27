@@ -769,7 +769,6 @@ public:
 
 private:
     Mutex               mLock;
-    Mutex               mDrainingLock;
     uint32_t            mFrameCount;
     uint32_t            mSampleRate;
     uint32_t            mChannels;
