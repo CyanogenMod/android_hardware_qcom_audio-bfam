@@ -125,6 +125,7 @@ class AudioHardwareALSA;
 #define INCALLMUSIC_KEY     "incall_music_enabled"
 #define VSID_KEY            "vsid"
 #define CALL_STATE_KEY      "call_state"
+#define AUDIO_PARAMETER_KEY_FM_VOLUME "fm_volume"
 
 
 #define ANC_FLAG        0x00000001
@@ -999,7 +1000,9 @@ public:
      */
     virtual status_t    setMasterVolume(float volume);
 #ifdef QCOM_FM_ENABLED
+#ifndef QCOM_FM_V2_ENABLED
     virtual status_t    setFmVolume(float volume);
+#endif
 #endif
     /**
      * setMode is called when the audio mode changes. NORMAL mode is for
