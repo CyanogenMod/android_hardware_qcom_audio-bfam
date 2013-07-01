@@ -207,15 +207,18 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
 #endif
             } else if(!strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP)) {
                 strlcpy(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP, sizeof(mHandle->useCase));
+            } else if(!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED) &&
+                            mHandle->format == AUDIO_FORMAT_AMR_WB) {
+                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED, sizeof(SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED));
             } else {
                 char value[128];
                 property_get("persist.audio.lowlatency.rec",value,"0");
                 if (!strcmp("true", value)) {
-                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_LOWLATENCY_MUSIC, sizeof(mHandle->useCase));
-                } else if(!strcmp(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED)) {
-                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED, sizeof(mHandle->useCase));
+                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_LOWLATENCY_MUSIC, sizeof(SND_USE_CASE_MOD_CAPTURE_LOWLATENCY_MUSIC));
+                } else if(!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC)){
+                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC, sizeof(SND_USE_CASE_MOD_CAPTURE_MUSIC));
                 } else {
-                    strlcpy(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC, sizeof(mHandle->useCase));
+                    ALOGE("No use case change = %s", mHandle->useCase);
                 }
             }
         } else {
@@ -280,15 +283,18 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
 #endif
             } else if(!strcmp(mHandle->useCase, SND_USE_CASE_VERB_IP_VOICECALL)){
                     strlcpy(mHandle->useCase, SND_USE_CASE_VERB_IP_VOICECALL, sizeof(mHandle->useCase));
-            } else if(!strcmp(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED)){
-                strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED, sizeof(mHandle->useCase));
+            } else if(!strcmp(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC_COMPRESSED) &&
+                       mHandle->format == AUDIO_FORMAT_AMR_WB) {
+                strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC_COMPRESSED, sizeof(SND_USE_CASE_VERB_HIFI_REC_COMPRESSED));
             } else {
                 char value[128];
                 property_get("persist.audio.lowlatency.rec",value,"0");
                 if (!strcmp("true", value)) {
-                    strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_REC, sizeof(mHandle->useCase));
+                    strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_LOWLATENCY_REC, sizeof(SND_USE_CASE_VERB_HIFI_LOWLATENCY_REC));
+                } else  if (!strcmp(mHandle->useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC)) {
+                    strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC, sizeof(SND_USE_CASE_VERB_HIFI_REC));
                 } else {
-                    strlcpy(mHandle->useCase, SND_USE_CASE_VERB_HIFI_REC, sizeof(mHandle->useCase));
+                    ALOGE("No change in usecase = %d", mHandle->useCase);
                 }
             }
         }
