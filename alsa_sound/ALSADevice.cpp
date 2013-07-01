@@ -1495,11 +1495,13 @@ status_t ALSADevice::setFmVolume(int value)
     return err;
 }
 
-status_t ALSADevice::setLpaVolume(int value)
+status_t ALSADevice::setLpaVolume(alsa_handle_t *handle, int value)
 {
     status_t err = NO_ERROR;
 
-    setMixerControl("LPA RX Volume",value,0);
+    err = pcm_set_volume(handle->handle, mMixer, value);
+    if(err)
+        ALOGE("setLpaVolume failed - error = %d",err);
 
     return err;
 }
@@ -2464,11 +2466,13 @@ void ALSADevice::setFlags(uint32_t flags)
     mDevSettingsFlag = flags;
 }
 
-status_t ALSADevice::setCompressedVolume(int value)
+status_t ALSADevice::setCompressedVolume(alsa_handle_t *handle, int value)
 {
     status_t err = NO_ERROR;
 
-    setMixerControl("COMPRESSED RX Volume",value,0);
+    err = pcm_set_volume(handle->handle, mMixer, value);
+    if(err)
+        ALOGE("setCompressedVolume failed - error = %d",err);
 
     return err;
 }

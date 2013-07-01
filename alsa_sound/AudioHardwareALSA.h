@@ -457,11 +457,11 @@ public:
     void     setVoipConfig(int mode, int rate);
     status_t setFmVolume(int vol);
     void     setBtscoRate(int rate);
-    status_t setLpaVolume(int vol);
+    status_t setLpaVolume(alsa_handle_t *handle, int vol);
     void     enableWideVoice(bool flag, uint32_t vsid = 0);
     void     enableFENS(bool flag, uint32_t vsid = 0);
     void     setFlags(uint32_t flag);
-    status_t setCompressedVolume(int vol);
+    status_t setCompressedVolume(alsa_handle_t *handle, int vol);
     status_t setChannelMap(alsa_handle_t *handle, int maxChannels);
     void     enableSlowTalk(bool flag, uint32_t vsid = 0);
     status_t setDMID();
