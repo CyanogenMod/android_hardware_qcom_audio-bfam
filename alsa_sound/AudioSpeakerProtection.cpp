@@ -252,6 +252,7 @@ void AudioSpeakerProtection::startSpkrProcessing()
         if (strncmp(name,"Inactive",strlen("Inactive"))) {
             mod = true;
         }
+        free(name);
     }
     strlcpy(alsa_handle_tx.useCase,
     ((mod)?SND_USE_CASE_MOD_SPKR_PROT_TX:SND_USE_CASE_VERB_SPKR_PROT_TX),
@@ -346,8 +347,11 @@ int AudioSpeakerProtection::spkCalibrate(int t0)
     snd_use_case_get(mUcMgr,"_verb",(const char **)&name);
     if (name && strncmp(name,"Inactive",strlen("Inactive"))) {
         ALOGE("%s usecase active retry", name);
+        free(name);
         return -EAGAIN;
     }
+    if (name)
+       free(name);
     acdb_fd = open("/dev/msm_acdb",O_RDWR | O_NONBLOCK);
     if (acdb_fd < 0) {
         ALOGE("spkr_prot_thread open msm_acdb failed");
@@ -579,6 +583,7 @@ void *AudioSpeakerProtection::spkrCalibrationThread(void *me)
                 if (strncmp(name,"Inactive",strlen("Inactive"))) {
                     goAhead = false;
                 }
+                free(name);
             }
             if (goAhead) {
                 int status;
@@ -619,5 +624,7 @@ void AudioSpeakerProtection::cancelCalibration()
             mSpkrCalibCancelAckMutex.unlock();
     } else
         mMutexSpkrProt.unlock();
+    if (name)
+       free(name);
 }
 }
