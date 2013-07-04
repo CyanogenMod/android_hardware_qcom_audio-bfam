@@ -779,15 +779,21 @@ status_t AudioSessionOutALSA::standby()
     Acquire draining lock so that we can be sure drain is done
     Flush will cause drain to complete, but we have to wait for it
     */
-    // At this point, all the buffers with the driver should be
-    // flushed.
-    Mutex::Autolock autoLock1(mDrainingLock);
+    /*
+    At this point, all the buffers with the driver should be flushed.
+    */
+
+    mLock.lock();
+    mSessionStatus = -1;
+    mLock.unlock();
+
+    requestAndWaitForEventThreadExit();
+
     mAlsaHandle->module->standby(mAlsaHandle);
     /*
         Since ALSA Handle is closed, make sure no operations on
         ALSA handle happen after this
     */
-    mSessionStatus = -1;
 
 
     if (mParent->mRouteAudioToExtOut) {
@@ -1121,12 +1127,8 @@ status_t AudioSessionOutALSA::drainAndPostEOS_l()
     }
 
     /*
-    To indicate to other threads that we are draining
-    and we have to wait till this is done. And take this
-    lock before unlocking mLock so that ::standby() will not
-    be able to acquire the mDrainingLock
+    if alsa handle is invalid, this flag will be false
     */
-    Mutex::Autolock autoLock(mDrainingLock);
     if (mSessionStatus != 0) {
         ALOGE("ALSA Handle closed already");
         return INVALID_OPERATION;
