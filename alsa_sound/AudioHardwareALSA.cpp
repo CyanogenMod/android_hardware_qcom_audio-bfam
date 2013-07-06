@@ -900,7 +900,8 @@ status_t AudioHardwareALSA::setParameters(const String8& keyValuePairs)
     }
 
     key = String8(VSID_KEY);
-    if (param.getInt(key, (int &)mVSID) == NO_ERROR) {
+    if (param.getInt(key, (int &)vsid) == NO_ERROR) {
+        mVSID = vsid;
         param.remove(key);
         key = String8(CALL_STATE_KEY);
         if (param.getInt(key, (int &)call_state) == NO_ERROR) {
