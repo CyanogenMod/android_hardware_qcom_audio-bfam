@@ -823,6 +823,9 @@ status_t AudioPolicyManager::startOutput(audio_io_handle_t output,
                             (strategy == STRATEGY_SONIFICATION_RESPECTFUL);
         uint32_t waitMs = 0;
         uint32_t muteWaitMs = 0;
+#ifndef QCOM_APM_VERSION_JBMR2
+        uint32_t RefCount = 0;
+#endif
         bool force = false;
         for (size_t i = 0; i < mOutputs.size(); i++) {
             AudioOutputDescriptor *desc = mOutputs.valueAt(i);
@@ -835,6 +838,9 @@ status_t AudioPolicyManager::startOutput(audio_io_handle_t output,
                     desc->device() != newDevice) {
                     force = true;
                 }
+#ifndef QCOM_APM_VERSION_JBMR2
+                RefCount += desc->refCount();
+#endif
                 // wait for audio on other active outputs to be presented when starting
                 // a notification so that audio focus effect can propagate.
 #ifdef QCOM_APM_VERSION_JBMR2
@@ -848,7 +854,11 @@ status_t AudioPolicyManager::startOutput(audio_io_handle_t output,
                 }
             }
         }
-
+#ifndef QCOM_APM_VERSION_JBMR2
+        if(RefCount==0){
+           force = true;
+        }
+#endif
 #ifdef QCOM_FM_ENABLED
         if(stream == AudioSystem::FM && output == getA2dpOutput()) {
             muteWaitMs = setOutputDevice(output, newDevice, true);
