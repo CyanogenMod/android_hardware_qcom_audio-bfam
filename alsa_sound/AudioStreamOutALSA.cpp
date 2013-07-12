@@ -449,7 +449,13 @@ status_t AudioStreamOutALSA::standby()
 uint32_t AudioStreamOutALSA::latency() const
 {
     // Android wants latency in milliseconds.
-    return USEC_TO_MSEC (mHandle->latency);
+    uint32_t latency = mHandle->latency;
+    if ((mParent->mExtOutStream == mParent->mA2dpStream) && mParent->mExtOutStream != NULL) {
+        uint32_t bt_latency = mParent->mExtOutStream->get_latency(mParent->mExtOutStream);
+        latency += bt_latency*1000;
+    }
+
+    return USEC_TO_MSEC (latency);
 }
 
 // return the number of audio frames written by the audio dsp to DAC since

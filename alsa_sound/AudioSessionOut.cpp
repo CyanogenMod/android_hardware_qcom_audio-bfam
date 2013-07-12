@@ -812,7 +812,12 @@ status_t AudioSessionOutALSA::standby()
 uint32_t AudioSessionOutALSA::latency() const
 {
     // Android wants latency in milliseconds.
-    return USEC_TO_MSEC (mAlsaHandle->latency);
+    uint32_t latency = mAlsaHandle->latency;
+    if ((mParent->mExtOutStream == mParent->mA2dpStream) && mParent->mExtOutStream != NULL) {
+        uint32_t bt_latency = mParent->mExtOutStream->get_latency(mParent->mExtOutStream);
+        latency += bt_latency*1000;
+    }
+    return USEC_TO_MSEC (latency);
 }
 
 status_t AudioSessionOutALSA::setObserver(void *observer)
