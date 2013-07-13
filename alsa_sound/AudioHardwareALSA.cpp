@@ -1078,7 +1078,9 @@ void AudioHardwareALSA::closeUSBRecording()
 void AudioHardwareALSA::closeUsbPlaybackIfNothingActive(){
     ALOGD("closeUsbPlaybackIfNothingActive, musbPlaybackState: %d", musbPlaybackState);
     if(!musbPlaybackState && mAudioUsbALSA != NULL) {
-        setProxyProperty(1);
+        if(!getExtOutActiveUseCases_l()){
+            setProxyProperty(1);
+        }
         mAudioUsbALSA->exitPlaybackThread(SIGNAL_EVENT_KILLTHREAD);
     }
 }
