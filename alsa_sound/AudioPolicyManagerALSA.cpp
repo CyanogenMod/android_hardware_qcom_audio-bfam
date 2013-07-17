@@ -211,13 +211,20 @@ status_t AudioPolicyManager::setDeviceConnectionState(audio_devices_t device,
         if(device == AUDIO_DEVICE_OUT_FM) {
             if (state == AudioSystem::DEVICE_STATE_AVAILABLE) {
                 ALOGV("setDeviceConnectionState() changeRefCount Inc");
+                #ifdef QCOM_FM_V2_ENABLED
+                mOutputs.valueFor(mPrimaryOutput)->changeRefCount(AudioSystem::MUSIC, 1);
+                #else
                 mOutputs.valueFor(mPrimaryOutput)->changeRefCount(AudioSystem::FM, 1);
-                newDevice = (audio_devices_t)(AudioPolicyManagerBase::
-                    getNewDevice(mPrimaryOutput, false) | AUDIO_DEVICE_OUT_FM);
+                #endif
+                newDevice = (audio_devices_t)(getNewDevice(mPrimaryOutput, false) | AUDIO_DEVICE_OUT_FM);
             }
             else {
                 ALOGV("setDeviceConnectionState() changeRefCount Dec");
+                #ifdef QCOM_FM_V2_ENABLED
+                mOutputs.valueFor(mPrimaryOutput)->changeRefCount(AudioSystem::MUSIC, -1);
+                #else
                 mOutputs.valueFor(mPrimaryOutput)->changeRefCount(AudioSystem::FM, -1);
+                #endif
             }
 
             AudioParameter param = AudioParameter();
@@ -850,7 +857,11 @@ status_t AudioPolicyManager::startOutput(audio_io_handle_t output,
         }
 
 #ifdef QCOM_FM_ENABLED
+        #ifdef QCOM_FM_V2_ENABLED
+        if(stream == AudioSystem::MUSIC && output == getA2dpOutput()) {
+        #else
         if(stream == AudioSystem::FM && output == getA2dpOutput()) {
+        #endif
             muteWaitMs = setOutputDevice(output, newDevice, true);
         } else
 #endif
@@ -1413,7 +1424,9 @@ AudioPolicyManager::routing_strategy AudioPolicyManager::getStrategy(
     case AudioSystem::TTS:
     case AudioSystem::MUSIC:
 #ifdef QCOM_FM_ENABLED
+    #ifndef QCOM_FM_V2_ENABLED
     case AudioSystem::FM:
+    #endif
 #endif
         return STRATEGY_MEDIA;
     case AudioSystem::ENFORCED_AUDIBLE:
@@ -1912,7 +1925,9 @@ status_t AudioPolicyManager::checkAndSetVolume(int stream,
     // - the force flag is set
     if (volume != mOutputs.valueFor(output)->mCurVolume[stream] ||
 #ifdef QCOM_FM_ENABLED
+            #ifndef QCOM_FM_V2_ENABLED
             (stream == AudioSystem::FM) ||
+            #endif
 #endif
             force) {
         mOutputs.valueFor(output)->mCurVolume[stream] = volume;
@@ -1922,16 +1937,36 @@ status_t AudioPolicyManager::checkAndSetVolume(int stream,
         if (stream == AudioSystem::BLUETOOTH_SCO) {
             mpClientInterface->setStreamVolume(AudioSystem::VOICE_CALL, volume, output, delayMs);
 #ifdef QCOM_FM_ENABLED
+        #ifdef QCOM_FM_V2_ENABLED
+        } else if (stream == AudioSystem::MUSIC) {
+            float fmVolume = -1.0;
+            fmVolume = computeVolume(stream, index, output, device);
+            if (fmVolume >= 0) {
+                if(output == mPrimaryOutput) {
+                    AudioParameter param = AudioParameter();
+                    param.addFloat(String8(AudioParameter::keyFmVolume), fmVolume);
+                    ALOGV("checkAndSetVolume setParameters fm_volume");
+                    mpClientInterface->setParameters(mPrimaryOutput, param.toString());
+                }
+                else if(mHasA2dp && output == getA2dpOutput()) {
+                    mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
+                }
+            }
+            //Do not return here, only FM volume is handled, still needs to handle music volume;
+        #else
         } else if (stream == AudioSystem::FM) {
             float fmVolume = -1.0;
             fmVolume = computeVolume(stream, index, output, device);
             if (fmVolume >= 0) {
-                if(output == mPrimaryOutput)
+                if(output == mPrimaryOutput) {
                     mpClientInterface->setFmVolume(fmVolume, delayMs);
-                else if(mHasA2dp && output == getA2dpOutput())
+                }
+                else if(mHasA2dp && output == getA2dpOutput()) {
                     mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
+                }
             }
             return NO_ERROR;
+        #endif
 #endif
         }
         mpClientInterface->setStreamVolume((AudioSystem::stream_type)stream, volume, output, delayMs);
