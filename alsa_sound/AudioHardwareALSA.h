@@ -940,6 +940,7 @@ private:
     int                 mSurroundOutputBufferIdx;
 #endif
 
+    uint8_t             *mAmrwbInputBuffer;
 protected:
     AudioHardwareALSA *     mParent;
 };
