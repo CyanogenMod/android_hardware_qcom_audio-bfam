@@ -554,7 +554,7 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
             else {
                 read += static_cast<ssize_t>((period_size));
                 read_pending -= period_size;
-                if (mParent->mMicMute) {
+                if (mParent->mMicMute || mParent->mVoipMicMute) {
                     memset(buffer, 0, period_size);
                 }
                 buffer += period_size;
