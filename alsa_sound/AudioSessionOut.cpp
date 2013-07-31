@@ -755,9 +755,9 @@ status_t AudioSessionOutALSA::stop()
 
 status_t AudioSessionOutALSA::standby()
 {
-    Mutex::Autolock autoLock(mParent->mLock);
     status_t err = NO_ERROR;
     flush();
+    Mutex::Autolock autoLock(mParent->mLock);
 
 #ifdef QCOM_USBAUDIO_ENABLED
     if (mParent->musbPlaybackState) {
