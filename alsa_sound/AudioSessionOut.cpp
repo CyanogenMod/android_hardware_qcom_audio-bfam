@@ -1084,25 +1084,22 @@ void AudioSessionOutALSA::reset() {
     }
 #endif
 
-    if(mAlsaHandle) {
-        ALOGD("closeDevice mAlsaHandle");
-        closeDevice(mAlsaHandle);
-        mAlsaHandle = NULL;
-    }
 #ifdef QCOM_USBAUDIO_ENABLED
     mParent->closeUsbPlaybackIfNothingActive();
 #endif
     ALOGV("Erase device list");
     for(ALSAHandleList::iterator it = mParent->mDeviceList.begin();
             it != mParent->mDeviceList.end(); ++it) {
-        if( isTunnelUseCase(it->useCase) ||
-           (!strncmp(it->useCase, SND_USE_CASE_VERB_HIFI_LOW_POWER,
-                            strlen(SND_USE_CASE_VERB_HIFI_LOW_POWER))) ||
-           (!strncmp(it->useCase, SND_USE_CASE_MOD_PLAY_LPA,
-                            strlen(SND_USE_CASE_MOD_PLAY_LPA)))) {
+        if (&(*it) == mAlsaHandle) {
             mParent->mDeviceList.erase(it);
             break;
         }
+    }
+
+    if(mAlsaHandle) {
+        ALOGD("closeDevice mAlsaHandle");
+        closeDevice(mAlsaHandle);
+        mAlsaHandle = NULL;
     }
     mParent->mLock.unlock();
 }
