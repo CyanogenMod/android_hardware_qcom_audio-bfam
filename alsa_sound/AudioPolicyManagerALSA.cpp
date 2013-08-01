@@ -13,6 +13,25 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
+ *
+ * This file was modified by Dolby Laboratories, Inc. The portions of the
+ * code that are surrounded by "DOLBY..." are copyrighted and
+ * licensed separately, as follows:
+ *
+ *  (C) 2011-2012 Dolby Laboratories, Inc.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
  */
 
 #define LOG_TAG "AudioPolicyManagerALSA"
@@ -249,6 +268,11 @@ status_t AudioPolicyManager::setDeviceConnectionState(audio_devices_t device,
                             0);
         }
 
+#ifdef DOLBY_UDC_MULTICHANNEL
+        audio_devices_t audioOutputDevice =
+            getDeviceForStrategy(getStrategy(AudioSystem::MUSIC), false);
+        setDolbySystemProperty(audioOutputDevice);
+#endif //DOLBY_UDC_MULTICHANNEL
         if (device == AUDIO_DEVICE_OUT_WIRED_HEADSET) {
             device = AUDIO_DEVICE_IN_WIRED_HEADSET;
         } else if (device == AUDIO_DEVICE_OUT_BLUETOOTH_SCO ||
@@ -897,6 +921,21 @@ status_t AudioPolicyManager::startOutput(audio_io_handle_t output,
             usleep((waitMs - muteWaitMs) * 2 * 1000);
         }
     }
+#ifdef DOLBY_UDC_MULTICHANNEL
+    // It is observed that in some use-cases where both outputs are present eg.
+    // bluetooth and headphone,
+    // the output for particular stream type is decided in this routine. Hence
+    // we must call
+    // getDeviceForStrategy in order to get the current active output for this
+    // stream type and update
+    // the dolby system property.
+    if (stream == AudioSystem::MUSIC)
+    {
+        audio_devices_t audioOutputDevice =
+           getDeviceForStrategy(getStrategy(AudioSystem::MUSIC), false);
+        setDolbySystemProperty(audioOutputDevice);
+    }
+#endif // DOLBY_UDC_MULTICHANNEL
     return NO_ERROR;
 }
 
@@ -1297,12 +1336,52 @@ status_t AudioPolicyManager::checkOutputsForDevice(audio_devices_t device,
                         output = 0;
                     }
                 }
+#ifdef DOLBY_UDC_MULTICHANNEL
+                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+                {
+                    bool supportHDMI8 = false;
+                    for (uint32_t i = 0; i < profile->mChannelMasks.size(); ++i)
+                    {
+                        audio_channel_mask_t channelMask =
+                            profile->mChannelMasks[i];
+                        if (channelMask == AUDIO_CHANNEL_OUT_7POINT1)
+                        {
+                            supportHDMI8 = true;
+                            break;
+                        }
+                    }
+
+                    if (supportHDMI8)
+                    {
+                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
+                              "HDMI_8");
+                        mCurrentHdmiDeviceCapability = HDMI_8;
+                    }
+                    else
+                    {
+                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
+                              "HDMI_6");
+                        mCurrentHdmiDeviceCapability = HDMI_6;
+                    }
+                }
+#endif //DOLBY_UDC_MULTICHANNEL
             }
             if (output == 0) {
                 ALOGW("checkOutputsForDevice() could not open output for device %x", device);
                 delete desc;
                 profiles.removeAt(profile_index);
                 profile_index--;
+#ifdef DOLBY_UDC_MULTICHANNEL
+                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+                {
+                    // Seems the current behaviour for HDMI 2 case is to have
+                    // output to be
+                    // equal to 0.
+                    ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
+                          "HDMI_2");
+                    mCurrentHdmiDeviceCapability = HDMI_2;
+                }
+#endif // DOLBY_UDC_MULTICHANNEL
             } else {
                 outputs.add(output);
                 ALOGV("checkOutputsForDevice(): adding output %d", output);
@@ -1314,6 +1393,13 @@ status_t AudioPolicyManager::checkOutputsForDevice(audio_devices_t device,
             return BAD_VALUE;
         }
     } else {
+#ifdef DOLBY_UDC_MULTICHANNEL
+        if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+        {
+            mCurrentHdmiDeviceCapability = HDMI_INVALID;
+            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability = HDMI_INVALID");
+        }
+#endif //DOLBY_UDC_MULTICHANNEL
         // check if one opened output is not needed any more after disconnecting one device
         for (size_t i = 0; i < mOutputs.size(); i++) {
             desc = mOutputs.valueAt(i);
