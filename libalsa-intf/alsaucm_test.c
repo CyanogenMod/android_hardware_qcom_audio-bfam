@@ -300,6 +300,8 @@ static int process_cmd(char *cmdStr)
         err = snd_use_case_get(uc_mgr, identifier, &str);
         if (err < 0) {
             fprintf(stderr, "%s: error failed to get %s: %d\n", cmd->cmd_str, identifier, err);
+            if(str)
+                free((void *)str);
             return err;
         }
         printf("  %s=%s\n", identifier, str);
