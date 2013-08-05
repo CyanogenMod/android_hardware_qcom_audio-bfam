@@ -79,7 +79,8 @@ AudioStreamInALSA::AudioStreamInALSA(AudioHardwareALSA *parent,
     mSurroundOutputBuffer(NULL),
     mSurroundInputBuffer(NULL),
     mSurroundOutputBufferIdx(0),
-    mSurroundInputBufferIdx(0)
+    mSurroundInputBufferIdx(0),
+    mAmrwbInputBuffer(NULL)
 #endif
 {
 #ifdef QCOM_SSR_ENABLED
@@ -343,6 +344,21 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
 
             return 0;
         }
+
+        if (mHandle->format == AUDIO_FORMAT_AMR_WB &&
+            (strncmp(mHandle->useCase, SND_USE_CASE_VERB_IP_VOICECALL,
+                        strlen(SND_USE_CASE_VERB_IP_VOICECALL))) &&
+            (strncmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP,
+                        strlen(SND_USE_CASE_MOD_PLAY_VOIP)))) {
+            ALOGD("read:: Allocate mAmrwbInputBuffer size %d", mHandle->periodSize);
+            mAmrwbInputBuffer = (uint8_t*) calloc(1, mHandle->periodSize);
+            if (mAmrwbInputBuffer == NULL) {
+                ALOGE("read:: mAmrwbInputBuffer allocation failed");
+                pcm_close(mHandle->handle);
+                mHandle->handle = NULL;
+                return 0;
+            }
+        }
 #ifdef QCOM_USBAUDIO_ENABLED
         if((mHandle->devices == AudioSystem::DEVICE_IN_ANLG_DOCK_HEADSET)||
            (mHandle->devices == AudioSystem::DEVICE_OUT_ANLG_DOCK_HEADSET)){
@@ -477,12 +493,12 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
                 read_pending = AMR_WB_FRAMESIZE;
             }
             //We should pcm_read period_size to get complete data from driver
-            n = pcm_read(mHandle->handle, buffer, period_size);
+            n = pcm_read(mHandle->handle, mAmrwbInputBuffer, period_size);
             if (n < 0) {
                 ALOGE("pcm_read() returned failure: %d", n);
                 return 0;
             } else {
-                struct snd_compr_audio_info *header = (struct snd_compr_audio_info *) buffer;
+                struct snd_compr_audio_info *header = (struct snd_compr_audio_info *) mAmrwbInputBuffer;
                 if (header->frame_size > 0) {
                     if (sizeof(*header) + header->reserved[0] + header->frame_size > period_size) {
                         ALOGE("AMR WB read buffer overflow. Assign bigger buffer size");
@@ -490,10 +506,10 @@ ssize_t AudioStreamInALSA::read(void *buffer, ssize_t bytes)
                     }
                     read += header->frame_size;
                     read_pending -= header->frame_size;
-                    ALOGV("buffer: %p, data offset: %p, header size: %u, reserved[0]: %u",
-                            buffer, ((uint8_t*)buffer) + sizeof(*header) + header->reserved[0],
+                    ALOGV("mAmrwbInputBuffer: %p, data offset: %p, header size: %u, reserved[0]: %u",
+                            mAmrwbInputBuffer, mAmrwbInputBuffer + sizeof(*header) + header->reserved[0],
                             sizeof(*header), header->reserved[0]);
-                    memmove(buffer, ((uint8_t*)buffer) + sizeof(*header) + header->reserved[0], header->frame_size);
+                    memcpy(buffer, mAmrwbInputBuffer + sizeof(*header) + header->reserved[0], header->frame_size);
                     buffer += header->frame_size;
                 } else {
                     ALOGW("pcm_read() with zero frame size");
@@ -701,6 +717,11 @@ status_t AudioStreamInALSA::standby()
 #endif
     mHandle->module->standby(mHandle);
 
+    if (mHandle->format == AUDIO_FORMAT_AMR_WB &&
+        mAmrwbInputBuffer) {
+        free(mAmrwbInputBuffer);
+        mAmrwbInputBuffer = NULL;
+    }
 
     return NO_ERROR;
 }
