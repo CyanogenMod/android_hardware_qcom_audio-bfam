@@ -2059,7 +2059,19 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
                                     sizeof(alsa_handle.useCase));
                         }
                     }
-                }
+                } else if (*channels & AUDIO_CHANNEL_IN_VOICE_UPLINK) {
+                   if (mFusion3Platform == false) {
+                       strlcpy(alsa_handle.useCase,
+                               SND_USE_CASE_MOD_CAPTURE_VOICE_UL,
+                               sizeof(SND_USE_CASE_MOD_CAPTURE_VOICE_UL));
+                   } else {
+                       /* Use normal audio recording for Fusion3 target, this behavior
+                          will be changed in Fusion4
+                        */
+                       strlcpy(alsa_handle.useCase, SND_USE_CASE_MOD_CAPTURE_MUSIC,
+                               sizeof(SND_USE_CASE_MOD_CAPTURE_MUSIC));
+                   }
+               }
 #ifdef QCOM_FM_ENABLED
             } else if((devices == AudioSystem::DEVICE_IN_FM_RX)) {
                 strlcpy(alsa_handle.useCase, SND_USE_CASE_MOD_CAPTURE_FM, sizeof(alsa_handle.useCase));
@@ -2112,6 +2124,14 @@ AudioHardwareALSA::openInputStream(uint32_t devices,
                                     sizeof(alsa_handle.useCase));
                         }
                     }
+                } else if (*channels & AUDIO_CHANNEL_IN_VOICE_UPLINK) {
+                   if (mFusion3Platform == false) {
+                       strlcpy(alsa_handle.useCase, SND_USE_CASE_VERB_UL_REC,
+                               sizeof(SND_USE_CASE_VERB_UL_REC));
+                   } else {
+                       strlcpy(alsa_handle.useCase, SND_USE_CASE_VERB_HIFI_REC,
+                               sizeof(SND_USE_CASE_VERB_HIFI_REC));
+                   }
                 }
 #ifdef QCOM_FM_ENABLED
             } else if(devices == AudioSystem::DEVICE_IN_FM_RX) {
