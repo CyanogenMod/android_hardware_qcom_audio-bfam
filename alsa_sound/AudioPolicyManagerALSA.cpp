@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2009 The Android Open Source Project
  * Copyright (c) 2012-2013, The Linux Foundation. All rights reserved.
- *
+ * Not a contribution.
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -1339,29 +1339,32 @@ status_t AudioPolicyManager::checkOutputsForDevice(audio_devices_t device,
 #ifdef DOLBY_UDC_MULTICHANNEL
                 if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL)
                 {
-                    bool supportHDMI8 = false;
+                    bool hdmiFlagSet = false;
                     for (uint32_t i = 0; i < profile->mChannelMasks.size(); ++i)
                     {
                         audio_channel_mask_t channelMask =
                             profile->mChannelMasks[i];
-                        if (channelMask == AUDIO_CHANNEL_OUT_7POINT1)
-                        {
-                            supportHDMI8 = true;
+                        switch (channelMask) {
+                        case  AUDIO_CHANNEL_OUT_7POINT1:
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
+                                  "HDMI_8");
+                            mCurrentHdmiDeviceCapability = HDMI_8;
+                            hdmiFlagSet = true;
+                            break;
+                        case AUDIO_CHANNEL_OUT_5POINT1:
+                            ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
+                                  "HDMI_6");
+                            mCurrentHdmiDeviceCapability = HDMI_6;
+                            hdmiFlagSet = true;
+                            break;
+                        default:
+                            ALOGV("DOLBY_ENDPOINTmCurrentHdmiDeviceCapability="
+                                  "HDMI_2");
+                            mCurrentHdmiDeviceCapability = HDMI_2;
                             break;
                         }
-                    }
-
-                    if (supportHDMI8)
-                    {
-                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
-                              "HDMI_8");
-                        mCurrentHdmiDeviceCapability = HDMI_8;
-                    }
-                    else
-                    {
-                        ALOGV("DOLBY_ENDPOINT mCurrentHdmiDeviceCapability ="
-                              "HDMI_6");
-                        mCurrentHdmiDeviceCapability = HDMI_6;
+                        if (hdmiFlagSet)
+                            break;
                     }
                 }
 #endif //DOLBY_UDC_MULTICHANNEL
@@ -1372,7 +1375,8 @@ status_t AudioPolicyManager::checkOutputsForDevice(audio_devices_t device,
                 profiles.removeAt(profile_index);
                 profile_index--;
 #ifdef DOLBY_UDC_MULTICHANNEL
-                if (device == AUDIO_DEVICE_OUT_AUX_DIGITAL)
+                if ((device == AUDIO_DEVICE_OUT_AUX_DIGITAL) &&
+                    (mCurrentHdmiDeviceCapability == HDMI_INVALID))
                 {
                     // Seems the current behaviour for HDMI 2 case is to have
                     // output to be
