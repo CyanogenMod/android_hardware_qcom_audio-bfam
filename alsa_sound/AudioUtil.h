@@ -24,6 +24,9 @@
 #define MIN_AUDIO_DESC_LENGTH           3
 #define MIN_SPKR_ALLOCATION_DATA_LENGTH 3
 #define MAX_CHANNELS_SUPPORTED          8
+#define MAX_DISPLAY_DEVICES             3
+#define MAX_FRAME_BUFFER_NAME_SIZE      80
+#define MAX_CHAR_PER_INT                13
 
 /* Front left channel. */
 #define PCM_CHANNEL_FL    1
@@ -96,6 +99,7 @@ public:
     //Parses EDID audio block when if HDMI is connected to determine audio sink capabilities.
     static bool getHDMIAudioSinkCaps(EDID_AUDIO_INFO*);
     static bool getHDMIAudioSinkCaps(EDID_AUDIO_INFO*, char *hdmiEDIDData);
+    static bool isDeviceDisconnectedReceivedHDMICoreDriver();
 
 private:
     static int printFormatFromEDID(unsigned char format);
@@ -107,6 +111,7 @@ private:
     static void updateChannelMapLPASS(EDID_AUDIO_INFO* pInfo);
     static void updateChannelAllocation(EDID_AUDIO_INFO* pInfo);
     static void printSpeakerAllocation(EDID_AUDIO_INFO* pInfo);
+    static int32_t getHdmiDispDevFbIndex();
 };
 
 #endif /* ALSA_SOUND_AUDIO_UTIL_H */

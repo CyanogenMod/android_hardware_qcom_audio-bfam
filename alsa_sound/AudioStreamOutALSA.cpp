@@ -36,6 +36,7 @@
 #include <hardware_legacy/power.h>
 
 #include "AudioHardwareALSA.h"
+#include "AudioUtil.h"
 
 #ifndef ALSA_DEFAULT_SAMPLE_RATE
 #define ALSA_DEFAULT_SAMPLE_RATE 44100 // in Hz
@@ -116,6 +117,22 @@ ssize_t AudioStreamOutALSA::write(const void *buffer, size_t bytes)
     if((strcmp(mHandle->useCase, SND_USE_CASE_VERB_IP_VOICECALL)) &&
        (strcmp(mHandle->useCase, SND_USE_CASE_MOD_PLAY_VOIP))) {
         mParent->mLock.lock();
+        /*
+          We can have scenario where the HDMI is current active device in HAL,
+          but the device switch might have happened and the notificaiton is
+          received with one sec delay from AudioService
+          Skip writing data to DSP so that no data is fed to HDMI core to
+          avoid obtain buffer timeout and the ADSP crashes
+        */
+        if(mParent->mCurRxDevice == AudioSystem::DEVICE_OUT_AUX_DIGITAL &&
+            mHandle->handle == NULL && mHandle->rxHandle == NULL &&
+            AudioUtil::isDeviceDisconnectedReceivedHDMICoreDriver()) {
+            ALOGD("HDMI is disconnected, skip writing data to HDMI device!!");
+            uint32_t sleepTimeUs = (uint32_t) ((bytes * 1000000 /*for us*/) / (48000 * 2 /*channel*/));
+            mParent->mLock.unlock();
+            usleep(sleepTimeUs);
+            return bytes;
+        }
         /* PCM handle might be closed and reopened immediately to flush
          * the buffers, recheck and break if PCM handle is valid */
         if (mHandle->handle == NULL && mHandle->rxHandle == NULL) {

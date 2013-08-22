@@ -18,6 +18,7 @@
 #define LOG_TAG "AudioUtil"
 //#define LOG_NDEBUG 0
 #include <utils/Log.h>
+#include <stdlib.h>
 
 #include "AudioUtil.h"
 
@@ -306,31 +307,28 @@ bool AudioUtil::getSpeakerAllocation(EDID_AUDIO_INFO* pInfo) {
             ALOGV("pInfo->nSpeakerAllocation %x %x %x\n", data[0],data[1],data[2]);
 
 
-            if (pInfo->nSpeakerAllocation[0] & BIT(7)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(7))
                  ALOGV("FLW/FRW");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(6)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(6))
                  ALOGV("RLC/RRC");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(5)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(5))
                  ALOGV("FLC/FRC");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(4)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(4))
                 ALOGV("RC");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(3)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(3))
                 ALOGV("RL/RR");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(2)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(2))
                 ALOGV("FC");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(1)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(1))
                 ALOGV("LFE");
-            } else if (pInfo->nSpeakerAllocation[0] & BIT(0)) {
+            if (pInfo->nSpeakerAllocation[0] & BIT(0))
                 ALOGV("FL/FR");
-            }
-
-            if (pInfo->nSpeakerAllocation[1] & BIT(2)) {
+            if (pInfo->nSpeakerAllocation[1] & BIT(2))
                 ALOGV("FCH");
-            } else if (pInfo->nSpeakerAllocation[1] & BIT(1)) {
+            if (pInfo->nSpeakerAllocation[1] & BIT(1))
                 ALOGV("TC");
-            } else if (pInfo->nSpeakerAllocation[1] & BIT(0)) {
+            if (pInfo->nSpeakerAllocation[1] & BIT(0))
                 ALOGV("FLH/FRH");
-            }
         }
     }
     if (original_data_ptr)
@@ -381,6 +379,8 @@ void AudioUtil::updateChannelMap(EDID_AUDIO_INFO* pInfo)
             pInfo->channelMap[6] = PCM_CHANNEL_RLC;
             pInfo->channelMap[7] = PCM_CHANNEL_RRC;
         }
+        // higher channel are not defined by LPASS
+        pInfo->nSpeakerAllocation[0] &= 0x3f;
         if(pInfo->nSpeakerAllocation[0] & BIT(7)) {
             pInfo->channelMap[6] = 0; // PCM_CHANNEL_FLW; but not defined by LPASS
             pInfo->channelMap[7] = 0; // PCM_CHANNEL_FRW; but not defined by LPASS
@@ -734,4 +734,54 @@ void AudioUtil::updateChannelMapLPASS(EDID_AUDIO_INFO* pInfo)
             break;
         }
     }
+}
+
+bool AudioUtil::isDeviceDisconnectedReceivedHDMICoreDriver()
+{
+    char fbType[MAX_FRAME_BUFFER_NAME_SIZE];
+    char msmFbTypePath[MAX_FRAME_BUFFER_NAME_SIZE];
+    FILE* fpHdmiConnected = NULL;
+    char data[MAX_CHAR_PER_INT], index = getHdmiDispDevFbIndex();
+
+    snprintf(msmFbTypePath, sizeof(msmFbTypePath),
+                 "/sys/class/graphics/fb%d/connected", index);
+    fpHdmiConnected = fopen(msmFbTypePath, "rb");
+    ALOGV("isDeviceDisconnectedReceivedHDMICoreDriver");
+    if(fpHdmiConnected) {
+        ALOGV("connected node open successful");
+        if(fread(data, 1, MAX_CHAR_PER_INT, fpHdmiConnected)) {
+            ALOGV("data in the node - %d", atoi(data));
+            fclose(fpHdmiConnected);
+            return atoi(data) ? false : true;
+        } else {
+            fclose(fpHdmiConnected);
+            return true;
+        }
+    } else {
+        return true;
+    }
+}
+
+int32_t AudioUtil::getHdmiDispDevFbIndex()
+{
+    FILE *displayDeviceFP = NULL;
+    char fbType[MAX_FRAME_BUFFER_NAME_SIZE];
+    char msmFbTypePath[MAX_FRAME_BUFFER_NAME_SIZE];
+    int index = -1;
+
+    for(int j = 1; j < MAX_DISPLAY_DEVICES; j++) {
+        snprintf (msmFbTypePath, sizeof(msmFbTypePath),
+                  "/sys/class/graphics/fb%d/msm_fb_type", j);
+        displayDeviceFP = fopen(msmFbTypePath, "r");
+        if(displayDeviceFP) {
+            fread(fbType, sizeof(char), MAX_FRAME_BUFFER_NAME_SIZE, displayDeviceFP);
+            if(strncmp(fbType, "dtv panel", strlen("dtv panel")) == 0) {
+                index = j;
+                fclose(displayDeviceFP);
+                break;
+            }
+            fclose(displayDeviceFP);
+        }
+    }
+    return index;
 }
