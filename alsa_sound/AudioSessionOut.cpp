@@ -132,6 +132,13 @@ AudioSessionOutALSA::AudioSessionOutALSA(AudioHardwareALSA *parent,
         }
     }
 
+    if (mParent->mALSADevice->mADSPState == ADSP_UP_AFTER_SSR) {
+           // In-case of multiple streams only one stream will be resumed
+           // after resetting mADSPState to ADSP_UP with output device routed
+           ALOGD("We are restrting after SSR - Reset ADSP state to ADSP_UP");
+           mParent->mALSADevice->mADSPState = ADSP_UP;
+    }
+
     //open device based on the type (LPA or Tunnel) and devices
     //TODO: Check format type for linear vs non-linear to determine LPA/Tunnel
     *status = openAudioSessionDevice(type, devices);
