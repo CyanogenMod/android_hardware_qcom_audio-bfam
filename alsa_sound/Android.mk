@@ -24,6 +24,11 @@
 
 ifeq ($(strip $(BOARD_USES_ALSA_AUDIO)),true)
 
+ifneq ($(QCOM_AUDIO_FEATURE_DISABLED_SSR),true)
+$(shell mkdir -p $(OUT)/obj/SHARED_LIBRARIES/libsurround_proc_intermediates)
+$(shell touch $(OUT)/obj/SHARED_LIBRARIES/libsurround_proc_intermediates/export_includes)
+endif
+
 LOCAL_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
@@ -136,8 +141,11 @@ LOCAL_SHARED_LIBRARIES := \
     libc        \
     libpower    \
     libalsa-intf \
-    libsurround_proc\
     libaudioutils
+
+ifneq ($(QCOM_AUDIO_FEATURE_DISABLED_SSR),true)
+LOCAL_SHARED_LIBRARIES += libsurround_proc
+endif
 
 ifeq ($(TARGET_SIMULATOR),true)
  LOCAL_LDLIBS += -ldl

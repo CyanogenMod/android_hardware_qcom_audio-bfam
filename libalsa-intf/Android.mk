@@ -1,6 +1,10 @@
 LOCAL_PATH:= $(call my-dir)
 
 ifeq ($(strip $(BOARD_USES_ALSA_AUDIO)),true)
+
+$(shell mkdir -p $(OUT)/obj/SHARED_LIBRARIES/libacdbloader_intermediates)
+$(shell touch $(OUT)/obj/SHARED_LIBRARIES/libacdbloader_intermediates/export_includes)
+
 # Any prebuilt files with default TAGS can use the below:
 include $(CLEAR_VARS)
 #LOCAL_SRC_FILES:= aplay.c alsa_pcm.c alsa_mixer.c
@@ -52,13 +56,8 @@ LOCAL_MODULE:= libalsa-intf
 LOCAL_MODULE_TAGS := optional
 LOCAL_SHARED_LIBRARIES:= libc libcutils #libutils #libmedia libhardware_legacy
 LOCAL_C_INCLUDES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
-ifeq ($(strip $(TARGET_USES_QCOM_MM_AUDIO)),true)
 LOCAL_CFLAGS := -DQC_PROP -DCONFIG_DIR=\"/system/etc/snd_soc_msm/\"
 LOCAL_CFLAGS += -DCONFIG_DIR=\"/system/etc/snd_soc_msm/\"
-LOCAL_SHARED_LIBRARIES += libacdbloader
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audio-acdb-util
-LOCAL_C_INCLUDES += $(TARGET_OUT_HEADERS)/mm-audio/audcal
-endif
 LOCAL_ADDITIONAL_DEPENDENCIES := $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 ifeq ($(TARGET_SIMULATOR),true)
  LOCAL_LDLIBS += -ldl

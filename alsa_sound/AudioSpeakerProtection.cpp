@@ -55,7 +55,9 @@
 #endif
 #include <linux/msm_audio_acdb.h>
 #include "AudioUtil.h"
-#include "acdb-id-mapper.h"
+
+#define DEVICE_SPEAKER_MONO_TX_PROT_ACDB_ID 11
+#define DEVICE_SPEAKER_MONO_RX_PROT_ACDB_ID 14
 
 extern "C"
 {
